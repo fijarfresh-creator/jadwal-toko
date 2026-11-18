@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jadwal Toko — OutboundPro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#DC2626',card:'#131824'}}}}</script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+body{background:#090b11;color:#e2e8f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.inp{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:8px 12px;font-size:13px;color:#fff;outline:none;width:100%}
+.inp:focus{border-color:#DC2626}
+.btn{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700}
+.btn:hover{background:#334155}.btn-p{background:#DC2626;border-color:#DC2626}.btn-p:hover{background:#b91c1c}
+.btn:disabled{opacity:.5}
+th{font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;padding:6px 8px;position:sticky;top:0;background:#131824;z-index:2}
+td{padding:5px 8px;font-size:12px;border-top:1px solid #1e293b}
+.day{width:22px;min-width:22px;text-align:center;padding:2px 0;font-size:10px}
+.lbl{font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+<!-- LOGIN -->
+<div id="login" class="fixed inset-0 flex items-center justify-center p-6 z-50 bg-[#090b11]">
+  <div class="bg-card border border-slate-800 rounded-3xl p-8 w-full max-w-sm space-y-4">
+    <div class="text-center"><div class="text-4xl">🗓️</div><h1 class="text-xl font-bold mt-2">Jadwal <span class="text-primary">Toko</span></h1><p class="text-[10px] uppercase tracking-widest text-slate-500">OutboundPro</p></div>
+    <input id="lu" class="inp" placeholder="Username" autocapitalize="none">
+    <input id="lp" type="password" class="inp" placeholder="Password" onkeydown="if(event.key==='Enter')login()">
+    <p id="le" class="text-red-400 text-xs text-center min-h-[16px]"></p>
+    <button class="btn btn-p w-full py-3" onclick="login()">MASUK</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden h-screen flex">
+  <aside class="w-56 shrink-0 bg-card border-r border-slate-800 flex flex-col">
+    <div class="p-4 border-b border-slate-800"><b>Jadwal <span class="text-primary">Toko</span></b><div class="text-[10px] text-slate-500 uppercase tracking-widest">OutboundPro</div></div>
+    <nav id="nav" class="flex-1 p-3 space-y-1 overflow-y-auto"></nav>
+    <div class="p-3 border-t border-slate-800 text-xs"><div id="who" class="font-bold truncate"></div><div id="role" class="text-slate-500 mb-2"></div><button class="btn w-full" onclick="logout()">Keluar</button></div>
+  </aside>
+  <main class="flex-1 min-w-0 flex flex-col">
+    <header class="h-14 border-b border-slate-800 flex items-center justify-between px-6 gap-3">
+      <h2 id="title" class="font-bold"></h2>
+      <div class="flex items-center gap-3 text-xs"><span id="sync" class="text-slate-500"></span>
+        <label class="lbl !mb-0">Periode</label><input id="per" type="month" class="inp !w-auto" onchange="setPer(this.value)"></div>
+    </header>
+    <div id="main" class="flex-1 overflow-auto p-6"></div>
+  </main>
+</div>
+
+<div id="modal" class="hidden fixed inset-0 z-40 bg-black/70 flex items-start justify-center overflow-auto p-6" onclick="if(event.target===this)closeModal()"><div id="mbox" class="bg-card border border-slate-700 rounded-2xl p-6 w-full max-w-xl my-auto"></div></div>
+<div id="busy" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center"><div class="bg-card border border-slate-700 rounded-2xl px-8 py-6 text-center"><div class="animate-spin w-6 h-6 border-4 border-slate-600 border-t-primary rounded-full mx-auto mb-3"></div><div id="busyMsg" class="text-sm"></div></div></div>
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden bg-slate-900 border border-slate-700 rounded-xl px-5 py-3 text-sm"></div>
+
+<script>
+// ====== Firebase (project yang sama dengan aplikasi OutboundPro) ======
+firebase.initializeApp({apiKey:"AIzaSyCz-xOnqHT9NSagY188vHg8QDLopxWzuXA",authDomain:"outbound-7a30c.firebaseapp.com",projectId:"outbound-7a30c",appId:"1:854011773736:web:5f05f39a4a9857666b461d"});
+const auth=firebase.auth(), DOMAIN='@outboundpro.app';
+const S={per:'',d:null,c:null,me:null,tab:'dash',busy:false,f:{q:'',branch:'',group:'',status:'',page:0},sl:null,users:[],backups:[]};
+const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const can=p=>S.me&&S.me.perms.includes(p), nf=n=>Number(n).toLocaleString('id-ID');
+const pad=n=>String(n).padStart(2,'0'), HARI=['SENIN','SELASA','RABU','KAMIS','JUMAT','SABTU','MINGGU'];
+function toast(m,err){const t=$('#toast');t.textContent=m;t.className='fixed bottom-6 right-6 z-50 bg-slate-900 border rounded-xl px-5 py-3 text-sm '+(err?'border-red-500 text-red-300':'border-emerald-600');setTimeout(()=>t.classList.add('hidden'),3500)}
+function busy(on,m){S.busy=on;$('#busy').classList.toggle('hidden',!on);$('#busyMsg').textContent=m||''}
+function openModal(h){$('#mbox').innerHTML=h;$('#modal').classList.remove('hidden')}
+function closeModal(){$('#modal').classList.add('hidden')}
+async function api(action,payload){
+  const t=await auth.currentUser.getIdToken();
+  const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({action,payload:payload||{}})});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Gagal'); return j.data;
+}
+async function run(fn,msg,ok){try{busy(true,msg||'Memproses...');await fn();if(ok)toast(ok)}catch(e){toast(e.message,true)}finally{busy(false)}}
+
+// ====== Auth ======
+async function login(){
+  const u=$('#lu').value.trim().toLowerCase(),p=$('#lp').value; $('#le').textContent='';
+  if(!u||!p){$('#le').textContent='Isi username & password';return}
+  try{await auth.signInWithEmailAndPassword(u+DOMAIN,p)}catch(e){$('#le').textContent='Username atau password salah'}
+}
+function logout(){auth.signOut().then(()=>location.reload())}
+auth.onAuthStateChanged(async u=>{
+  if(!u){$('#login').classList.remove('hidden');$('#app').classList.add('hidden');return}
+  try{
+    S.me=await api('me'); if(!can('view')) throw new Error('Akun ini belum punya akses ke Jadwal Toko. Hubungi admin.');
+    $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
+    $('#who').textContent=S.me.name;$('#role').textContent=S.me.role;
+    const t=new Date();S.per=t.getFullYear()+'-'+pad(t.getMonth()+1);$('#per').value=S.per;
+    buildNav();await load();setInterval(poll,20000);
+  }catch(e){$('#le').textContent=e.message;auth.signOut()}
+});
+
+// ====== Data & sinkronisasi otomatis ======
+async function load(){
+  S.d=await api('state',{periode:S.per});calc();render();$('#sync').textContent='Sinkron '+new Date().toLocaleTimeString('id-ID');
+}
+async function poll(){ if(!S.d||S.busy)return; try{const v=await api('ver');if(v.ver!==S.d.ver)await load()}catch(e){} }
+function setPer(v){if(!v)return;S.per=v;S.f.page=0;run(load,'Memuat periode...')}
+function cnt(s,a,b){let n=0;for(let i=a;i<=b;i++)if(s&&s[i]==='1')n++;return n}
+function calc(){
+  const d=S.d,nd=d.nd,t=new Date(),cur=t.getFullYear()+'-'+pad(t.getMonth()+1);
+  const cut=S.per===cur?t.getDate():(S.per<cur?nd:0);
+  const c={cut,nd,tk:{},br:{},pd:new Array(nd+1).fill(0),ad:new Array(nd+1).fill(0),P:0,A:0,Pc:0,Ac:0,tutup:0,go:0,aktif:0};
+  d.toko.forEach(k=>{
+    const pl=d.plan[k.kode]||'',ac=d.act[k.kode]||'';
+    const x={p:cnt(pl,1,nd),a:cnt(ac,1,nd),pc:cnt(pl,1,cut),ac:cnt(ac,1,cut)};c.tk[k.kode]=x;
+    const b=c.br[k.branch]=c.br[k.branch]||{n:0,p:0,a:0,pc:0,ac:0,tutup:0,go:0};
+    if(x.p>0)b.n++;b.p+=x.p;b.a+=x.a;b.pc+=x.pc;b.ac+=x.ac;
+    if(k.status==='TUTUP'){b.tutup++;c.tutup++}else if(k.status==='GO'){b.go++;c.go++}
+    c.P+=x.p;c.A+=x.a;c.Pc+=x.pc;c.Ac+=x.ac;if(x.p>0)c.aktif++;
+    for(let i=1;i<=nd;i++){if(pl[i]==='1')c.pd[i]++;if(ac[i]==='1')c.ad[i]++}
+  });S.c=c;
+}
+const pct=(a,b)=>b?Math.round(a/b*1000)/10:0;
+
+// ====== Navigasi ======
+const MENU=[['dash','📊','Dashboard','view'],['jadwal','🗓️','Jadwal Toko','view'],['status','🏪','Tutup / GO','view'],['libur','⛔','Libur / SO','view'],['group','🚛','Group','view'],
+  ['upload','⬆️','Upload SL','upload'],['download','⬇️','Download','download'],['riwayat','🕘','Riwayat','view'],['admin','🛡️','Admin','admin']];
+function buildNav(){$('#nav').innerHTML=MENU.filter(m=>can(m[3])).map(m=>`<button id="n-${m[0]}" onclick="go('${m[0]}')" class="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:bg-white/5">${m[1]} ${m[2]}</button>`).join('')}
+function go(t){S.tab=t;S.f.page=0;render()}
+function render(){
+  if(!S.d)return;
+  document.querySelectorAll('#nav button').forEach(b=>b.className='w-full text-left px-3 py-2 rounded-xl text-sm font-semibold '+(b.id==='n-'+S.tab?'bg-white/10 text-white':'text-slate-400 hover:bg-white/5'));
+  const m=MENU.find(x=>x[0]===S.tab);$('#title').textContent=m?m[2]:'';
+  const V={dash:vDash,jadwal:vJadwal,status:vStatus,libur:vLibur,group:vGroup,upload:vUpload,download:vDownload,riwayat:vRiwayat,admin:vAdmin};
+  $('#main').innerHTML=V[S.tab]();if(S.tab==='riwayat')loadRiwayat();if(S.tab==='admin')loadAdmin();
+}
+const card=(t,b)=>`<div class="bg-card border border-slate-800 rounded-2xl p-5 ${b||''}">${t}</div>`;
+const kpi=(l,v,s)=>card(`<div class="text-[10px] font-bold uppercase text-slate-400">${l}</div><div class="text-3xl font-extrabold mt-2">${v}</div><div class="text-[11px] text-slate-500 mt-1">${s||''}</div>`);
+
+// ====== Dashboard ======
+function vDash(){
+  const c=S.c,d=S.d;
+  const rows=Object.keys(c.br).sort().map(b=>{const x=c.br[b];return`<tr><td class="font-bold">${esc(b)}</td><td>${nf(x.n)}</td><td>${nf(x.p)}</td><td>${nf(x.pc)}</td><td>${nf(x.ac)}</td><td>${nf(x.ac-x.pc)}</td>
+    <td><div class="flex items-center gap-2"><div class="w-24 h-2 bg-slate-800 rounded"><div class="h-2 rounded ${pct(x.ac,x.pc)>=95?'bg-emerald-500':'bg-red-500'}" style="width:${Math.min(100,pct(x.ac,x.pc))}%"></div></div>${pct(x.ac,x.pc)}%</div></td><td>${x.tutup}</td><td>${x.go}</td></tr>`}).join('');
+  const mx=Math.max(1,...c.pd,...c.ad);
+  const bars=c.pd.map((p,i)=>i?`<div class="flex flex-col items-center gap-1" title="Tgl ${i}: plan ${p}, aktual ${c.ad[i]}"><div class="flex items-end gap-px h-24"><div class="w-2 bg-slate-600" style="height:${p/mx*100}%"></div><div class="w-2 bg-primary" style="height:${c.ad[i]/mx*100}%"></div></div><div class="text-[9px] text-slate-500">${i}</div></div>`:'').join('');
+  return`<div class="space-y-5">
+   ${d.hasBase?'':card('<span class="text-amber-400 text-sm">Periode ini belum punya plan dasar dari file — jadwal dihitung dari aturan hari tiap group. Impor awal ada di menu Admin.</span>')}
+   <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">${kpi('Toko berjadwal',nf(c.aktif),'dari '+nf(d.toko.length)+' toko terdaftar')}${kpi('Plan bulan ini',nf(c.P),'kiriman')}
+    ${kpi('Plan s/d H'+c.cut,nf(c.Pc),'tanggal 1–'+c.cut)}${kpi('Aktual (SL)',nf(c.Ac),pct(c.Ac,c.Pc)+'% dari plan')}${kpi('Tutup / GO',c.tutup+' / '+c.go,'status toko')}</div>
+   ${card(`<div class="text-sm font-bold mb-3">Rekap per Branch</div><div class="overflow-auto"><table class="w-full"><thead><tr><th>Branch</th><th>Toko</th><th>Plan bulan</th><th>Plan s/d H${c.cut}</th><th>Aktual</th><th>Gap</th><th>% Aktual</th><th>Tutup</th><th>GO</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="text-[11px] text-slate-500 mt-3">Selisih plan vs aktual pada hari Stock Opname nasional bisa dicatat di menu Libur / SO agar plan otomatis ikut menyesuaikan.</p>`)}
+   ${card(`<div class="text-sm font-bold mb-3">Per Hari <span class="text-slate-500 font-normal">(abu = plan, merah = aktual)</span></div><div class="flex gap-1 overflow-auto">${bars}</div>`)}</div>`;
+}
+
+// ====== Jadwal Toko ======
+function filtered(){const f=S.f,q=f.q.toLowerCase();return S.d.toko.filter(t=>(!q||(t.kode+' '+t.nama+' '+t.ins).toLowerCase().includes(q))&&(!f.branch||t.branch===f.branch)&&(!f.group||t.group===f.group)&&(!f.status||t.status===f.status))}
+function sel(id,opts,val,ph){return`<select id="${id}" class="inp !w-auto" onchange="S.f.${id.slice(2)}=this.value;S.f.page=0;render()"><option value="">${ph}</option>${opts.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}</select>`}
+function vJadwal(){
+  const d=S.d,c=S.c,f=S.f,list=filtered(),PS=40,pages=Math.max(1,Math.ceil(list.length/PS));if(f.page>=pages)f.page=0;
+  const brs=[...new Set(d.toko.map(t=>t.branch))].sort(),grs=[...new Set(d.toko.map(t=>t.group))].sort();
+  const head=Array.from({length:d.nd},(_,i)=>`<th class="day !px-0">${i+1}</th>`).join('');
+  const rows=list.slice(f.page*PS,f.page*PS+PS).map(t=>{
+    const pl=d.plan[t.kode]||'',ac=d.act[t.kode]||'',x=c.tk[t.kode];let cells='';
+    for(let i=1;i<=d.nd;i++){const p=pl[i]==='1',a=ac[i]==='1';
+      const cl=p&&a?'bg-emerald-600 text-white':p&&i<=c.cut?'bg-red-600 text-white':p?'bg-slate-600 text-white':a?'bg-sky-700 text-white':'';
+      cells+=`<td class="day !p-0 ${cl}">${p?'1':a?'•':''}</td>`}
+    const bd=t.status==='TUTUP'?'bg-red-900/50 text-red-300':t.status==='GO'?'bg-emerald-900/50 text-emerald-300':'bg-slate-800 text-slate-400';
+    return`<tr class="hover:bg-white/5 cursor-pointer" onclick="openToko('${esc(t.kode)}')"><td class="font-mono font-bold">${esc(t.kode)}</td><td class="max-w-[180px] truncate">${esc(t.nama)}</td><td>${esc(t.group)}</td><td>${esc(t.branch)}</td>
+      <td><span class="px-2 rounded text-[10px] ${bd}">${t.status}</span></td>${cells}<td class="font-mono">${x.p}</td><td class="font-mono">${x.a}</td></tr>`}).join('');
+  return`<div class="space-y-4"><div class="flex flex-wrap gap-2 items-center">
+    <input class="inp !w-64" placeholder="Cari kode / nama / inisial..." value="${esc(f.q)}" oninput="S.f.q=this.value;S.f.page=0;clearTimeout(window._t);window._t=setTimeout(render,250)">
+    ${sel('f-branch',brs,f.branch,'Semua branch')}${sel('f-group',grs,f.group,'Semua group')}${sel('f-status',['AKTIF','GO','TUTUP'],f.status,'Semua status')}
+    ${can('edit')?'<button class="btn btn-p ml-auto" onclick="formToko()">+ Toko Baru (GO)</button>':''}</div>
+    <div class="text-[11px] text-slate-400"><span class="px-2 bg-emerald-600 rounded">1</span> plan & aktual &nbsp;<span class="px-2 bg-red-600 rounded">1</span> plan, belum ada SL &nbsp;<span class="px-2 bg-slate-600 rounded">1</span> plan (belum jatuh) &nbsp;<span class="px-2 bg-sky-700 rounded">•</span> ada SL tanpa plan — ${nf(list.length)} toko</div>
+    <div class="overflow-auto bg-card border border-slate-800 rounded-2xl max-h-[68vh]"><table class="w-full"><thead><tr><th>Kode</th><th>Nama</th><th>Group</th><th>Branch</th><th>Status</th>${head}<th>Plan</th><th>Akt</th></tr></thead><tbody>${rows||'<tr><td colspan="40" class="text-center text-slate-500 py-8">Tidak ada data</td></tr>'}</tbody></table></div>
+    <div class="flex items-center gap-3 text-xs"><button class="btn" ${f.page?'':'disabled'} onclick="S.f.page--;render()">‹ Sebelumnya</button>Halaman ${f.page+1} / ${pages}<button class="btn" ${f.page<pages-1?'':'disabled'} onclick="S.f.page++;render()">Berikutnya ›</button></div></div>`;
+}
+
+// ====== Detail toko & aksi ======
+async function openToko(kode){
+  const t=S.d.toko.find(x=>x.kode===kode);if(!t)return;const x=S.c.tk[kode],e=can('edit');
+  const gOpts=S.d.groups.map(g=>`<option>${esc(g.group)}</option>`).join('');
+  openModal(`<div class="flex justify-between items-start mb-4"><div><div class="text-xl font-bold font-mono">${esc(t.kode)}</div><div class="text-sm text-slate-400">${esc(t.nama)} ${t.ins?'('+esc(t.ins)+')':''}</div></div><button class="btn" onclick="closeModal()">✕</button></div>
+   <div class="grid grid-cols-2 gap-2 text-xs mb-4"><div>Branch: <b>${esc(t.branch)}</b></div><div>Group: <b>${esc(t.group)}</b></div><div>Status: <b>${t.status}</b></div><div>Plan / Aktual: <b>${x.p} / ${x.a}</b></div>
+    <div>Tutup mulai: <b>${t.tutup||'-'}</b></div><div>GO mulai: <b>${t.go||'-'}</b></div>${t.groupLama?`<div class="col-span-2">Pindah dari <b>${esc(t.groupLama)}</b> berlaku <b>${t.berlaku}</b></div>`:''}${t.kodeLama?`<div class="col-span-2">Kode lama: <b>${esc(t.kodeLama)}</b></div>`:''}${t.ket?`<div class="col-span-2 text-slate-400">${esc(t.ket)}</div>`:''}</div>
+   ${e?`<div class="space-y-3 border-t border-slate-800 pt-4">
+    <div class="grid grid-cols-3 gap-2"><div><label class="lbl">Status baru</label><select id="ms" class="inp"><option>TUTUP</option><option>GO</option><option>AKTIF</option></select></div><div><label class="lbl">Tanggal</label><input id="mt" type="date" class="inp"></div><div class="flex items-end"><button class="btn btn-p w-full" onclick="aStatus('${esc(kode)}')">Simpan Status</button></div></div>
+    <div class="grid grid-cols-3 gap-2"><div><label class="lbl">Pindah ke group</label><select id="mg" class="inp">${gOpts}</select></div><div><label class="lbl">Berlaku tgl</label><input id="mb" type="date" class="inp"></div><div class="flex items-end"><button class="btn btn-p w-full" onclick="aPindah('${esc(kode)}')">Pindah Group</button></div></div>
+    <div class="grid grid-cols-3 gap-2"><div><label class="lbl">Kode baru</label><input id="mk" class="inp uppercase"></div><div><label class="lbl">Berlaku tgl</label><input id="mk2" type="date" class="inp"></div><div class="flex items-end"><button class="btn btn-p w-full" onclick="aGanti('${esc(kode)}')">Ganti Kode</button></div></div></div>`:''}
+   <div class="border-t border-slate-800 mt-4 pt-3"><div class="lbl">Riwayat toko ini</div><div id="mh" class="text-xs text-slate-400 max-h-40 overflow-auto">Memuat...</div></div>`);
+  try{const h=await api('history',{kode,limit:50});$('#mh')&&($('#mh').innerHTML=h.length?h.map(r=>`<div class="py-1 border-b border-slate-800"><b>${r.waktu}</b> · ${esc(r.user)} · ${r.aksi}<br><span class="text-slate-500">${esc(String(r.detail).slice(0,160))}</span></div>`).join(''):'Belum ada riwayat')}catch(e){}
+}
+const after=m=>async()=>{closeModal();await load()};
+function aStatus(k){const st=$('#ms').value,tgl=$('#mt').value;run(async()=>{await api('setStatus',{kode:k,status:st,tgl});await after()()},'Menyimpan...','Status diperbarui')}
+function aPindah(k){run(async()=>{await api('pindahGroup',{kode:k,groupBaru:$('#mg').value,berlaku:$('#mb').value});await after()()},'Menyimpan...','Group dipindah')}
+function aGanti(k){run(async()=>{await api('gantiKode',{kodeLama:k,kodeBaru:$('#mk').value,tgl:$('#mk2').value});await after()()},'Menyimpan...','Kode diganti')}
+function formToko(){
+  const brs=[...new Set(S.d.groups.map(g=>g.branch).concat(S.d.toko.map(t=>t.branch)))].filter(Boolean).sort();
+  openModal(`<h3 class="font-bold mb-4">Toko Baru (GO)</h3><div class="grid grid-cols-2 gap-3">
+   <div><label class="lbl">Kode toko *</label><input id="tk" class="inp uppercase"></div><div><label class="lbl">Inisial</label><input id="ti" class="inp"></div>
+   <div class="col-span-2"><label class="lbl">Nama toko</label><input id="tn" class="inp"></div>
+   <div><label class="lbl">Branch *</label><select id="tb" class="inp">${brs.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
+   <div><label class="lbl">Group *</label><select id="tg" class="inp">${S.d.groups.map(g=>`<option>${esc(g.group)}</option>`).join('')}</select></div>
+   <div><label class="lbl">Tanggal GO *</label><input id="td" type="date" class="inp"></div><div><label class="lbl">Keterangan</label><input id="tq" class="inp"></div></div>
+   <div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" onclick="saveToko()">Simpan</button></div>`);
+}
+function saveToko(){run(async()=>{await api('tokoSave',{kode:$('#tk').value,ins:$('#ti').value,nama:$('#tn').value,branch:$('#tb').value,group:$('#tg').value,tgl:$('#td').value,ket:$('#tq').value});await after()()},'Menyimpan...','Toko ditambahkan')}
+
+// ====== Tutup / GO ======
+function vStatus(){
+  const l=S.d.toko.filter(t=>t.status!=='AKTIF'||t.tutup||t.go).sort((a,b)=>(b.tutup||b.go).localeCompare(a.tutup||a.go));
+  return card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Toko Tutup & GO (${l.length})</div>${can('edit')?'<button class="btn btn-p" onclick="formToko()">+ Toko Baru (GO)</button>':''}</div>
+   <div class="overflow-auto max-h-[70vh]"><table class="w-full"><thead><tr><th>Kode</th><th>Nama</th><th>Branch</th><th>Group</th><th>Status</th><th>Tutup mulai</th><th>GO mulai</th><th>Keterangan</th></tr></thead><tbody>${l.map(t=>`<tr class="hover:bg-white/5 cursor-pointer" onclick="openToko('${esc(t.kode)}')"><td class="font-mono font-bold">${esc(t.kode)}</td><td>${esc(t.nama)}</td><td>${esc(t.branch)}</td><td>${esc(t.group)}</td><td>${t.status}</td><td>${t.tutup||''}</td><td>${t.go||''}</td><td class="text-slate-400">${esc(t.ket)}</td></tr>`).join('')}</tbody></table></div>`);
+}
+
+// ====== Libur / Stock Opname ======
+function vLibur(){
+  const brs=[...new Set(S.d.toko.map(t=>t.branch))].sort(),grs=S.d.groups.map(g=>g.group);
+  const b=S.d.blackout.slice().sort((a,b)=>b.tgl.localeCompare(a.tgl));
+  return`<div class="grid lg:grid-cols-3 gap-5">${can('edit')?card(`<div class="text-sm font-bold mb-3">Tambah Libur / Stock Opname</div><div class="space-y-3">
+   <div><label class="lbl">Tanggal</label><input id="bt" type="date" class="inp"></div>
+   <div><label class="lbl">Berlaku untuk</label><select id="bs" class="inp" onchange="bsc()"><option value="ALL">Semua toko</option><option value="BRANCH">Satu branch</option><option value="GROUP">Satu group</option></select></div>
+   <div id="bnw" class="hidden"><label class="lbl">Pilih</label><select id="bn" class="inp"></select></div>
+   <div><label class="lbl">Keterangan</label><input id="bk" class="inp" placeholder="Stock Opname Nasional"></div>
+   <button class="btn btn-p w-full" onclick="addBo()">Tambah</button></div>`):''}
+   ${card(`<div class="text-sm font-bold mb-3">Daftar (${b.length}) — plan pada tanggal ini otomatis dikosongkan</div><div class="overflow-auto max-h-[65vh]"><table class="w-full"><thead><tr><th>Tanggal</th><th>Berlaku</th><th>Ket</th><th>Oleh</th><th></th></tr></thead><tbody>${b.map(x=>`<tr><td>${x.tgl}</td><td>${x.scope}${x.nilai?': '+esc(x.nilai):''}</td><td>${esc(x.ket)}</td><td class="text-slate-500">${esc(x.oleh)}</td><td>${can('edit')?`<button class="btn" onclick="delBo('${x.tgl}','${x.scope}','${esc(x.nilai)}')">Hapus</button>`:''}</td></tr>`).join('')}</tbody></table></div>`,'lg:col-span-2')}</div>`;
+}
+function bsc(){const s=$('#bs').value;$('#bnw').classList.toggle('hidden',s==='ALL');if(s!=='ALL'){const o=s==='BRANCH'?[...new Set(S.d.toko.map(t=>t.branch))].sort():S.d.groups.map(g=>g.group);$('#bn').innerHTML=o.map(x=>`<option>${esc(x)}</option>`).join('')}}
+function addBo(){const s=$('#bs').value;run(async()=>{await api('blackout',{op:'add',tgl:$('#bt').value,scope:s,nilai:s==='ALL'?'':$('#bn').value,ket:$('#bk').value});await load()},'Menyimpan...','Libur ditambahkan')}
+function delBo(tgl,scope,nilai){if(!confirm('Hapus libur '+tgl+'?'))return;run(async()=>{await api('blackout',{op:'del',tgl,scope,nilai});await load()},'Menghapus...','Dihapus')}
+
+// ====== Group ======
+function vGroup(){
+  const n={};S.d.toko.forEach(t=>n[t.group]=(n[t.group]||0)+1);
+  return card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Group Mobil (${S.d.groups.length}) <span class="text-slate-500 font-normal">— hari kirim dipakai jika toko tidak punya plan dasar / setelah pindah group</span></div>${can('edit')?'<button class="btn btn-p" onclick="formGroup()">+ Group</button>':''}</div>
+   <div class="overflow-auto max-h-[72vh]"><table class="w-full"><thead><tr><th>Group</th><th>Branch</th><th>Hari 1</th><th>Hari 2</th><th>Hari 3</th><th>Toko</th><th></th></tr></thead><tbody>${S.d.groups.map(g=>`<tr><td class="font-bold font-mono">${esc(g.group)}</td><td>${esc(g.branch)}</td><td>${g.h1}</td><td>${g.h2}</td><td>${g.h3}</td><td>${n[g.group]||0}</td><td>${can('edit')?`<button class="btn" onclick='formGroup(${JSON.stringify(g)})'>Edit</button>`:''}</td></tr>`).join('')}</tbody></table></div>`);
+}
+function formGroup(g){g=g||{group:'',branch:'',h1:'',h2:'',h3:''};
+  const hs=n=>`<select id="g${n}" class="inp"><option value=""></option>${HARI.map(h=>`<option ${g['h'+n]===h?'selected':''}>${h}</option>`).join('')}</select>`;
+  openModal(`<h3 class="font-bold mb-4">Group</h3><div class="grid grid-cols-2 gap-3"><div><label class="lbl">Group</label><input id="gg" class="inp uppercase" value="${esc(g.group)}" ${g.group?'readonly':''}></div><div><label class="lbl">Branch</label><input id="gb" class="inp" value="${esc(g.branch)}"></div>
+   <div><label class="lbl">Hari 1</label>${hs(1)}</div><div><label class="lbl">Hari 2</label>${hs(2)}</div><div><label class="lbl">Hari 3</label>${hs(3)}</div></div>
+   <div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" onclick="saveGroup()">Simpan</button></div>`)}
+function saveGroup(){run(async()=>{await api('groupSave',{group:$('#gg').value,branch:$('#gb').value,h1:$('#g1').value,h2:$('#g2').value,h3:$('#g3').value});await after()()},'Menyimpan...','Group disimpan')}
+
+// ====== Upload SL ======
+const toDS=v=>{if(typeof v==='number')return new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10);const s=String(v||'').trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+'-'+pad(+m[2])+'-'+pad(+m[1]):''};
+function vUpload(){
+  const s=S.sl;
+  return card(`<div class="text-sm font-bold mb-1">Upload SL ALL TAG</div><p class="text-xs text-slate-400 mb-4">Pilih file SL (.xlsx / .csv). Kolom dikenali otomatis: TANGGAL SL, KODE, NAMA, QTY PB, QTY SHIP, BREANC. Tanggal yang sama akan diganti (tidak dobel). Sistem otomatis membuat backup sebelum menimpa.</p>
+   <input type="file" accept=".xlsx,.xls,.csv" class="inp" onchange="readSL(this.files[0])">
+   ${s?`<div class="mt-4 text-sm space-y-1"><div>File: <b>${esc(s.name)}</b></div><div>Baris: <b>${nf(s.rows.length)}</b> · Toko unik: <b>${nf(s.kodes)}</b> · Tanggal: <b>${s.min}</b> s/d <b>${s.max}</b></div>
+   <div class="${s.unk.length?'text-amber-400':'text-emerald-400'}">${s.unk.length?'Kode tidak ada di master toko ('+s.unk.length+'): '+esc(s.unk.slice(0,12).join(', '))+(s.unk.length>12?' ...':''):'Semua kode dikenali di master toko'}</div>
+   <button class="btn btn-p mt-3" onclick="doSL()">Proses & Simpan</button></div>`:''}`);
+}
+async function readSL(f){
+  if(!f)return;busy(true,'Membaca file...');
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const name=wb.SheetNames.find(n=>/SL/i.test(n))||wb.SheetNames[0];
+    const js=XLSX.utils.sheet_to_json(wb.Sheets[name],{raw:true,defval:''});if(!js.length)throw new Error('File kosong');
+    const ks=Object.keys(js[0]),fk=re=>ks.find(k=>re.test(k.trim()));
+    const kT=fk(/^TANGGAL/i),kK=fk(/^KODE$/i),kN=fk(/^NAMA/i),kP=fk(/QTY\s*PB/i),kS=fk(/QTY\s*SHIP/i),kB=fk(/BR[A-Z]*NCH|BREANC/i);
+    if(!kT||!kK)throw new Error('Kolom TANGGAL SL / KODE tidak ditemukan');
+    const rows=[];js.forEach(r=>{const t=toDS(r[kT]),k=String(r[kK]).trim().toUpperCase();if(t&&k)rows.push([t,k,kN?r[kN]:'',kB?r[kB]:'',kP?r[kP]:0,kS?r[kS]:0])});
+    const dts=rows.map(r=>r[0]).sort(),known=new Set(S.d.toko.map(t=>t.kode)),ks2=new Set(rows.map(r=>r[1]));
+    S.sl={name:f.name,rows,min:dts[0],max:dts[dts.length-1],kodes:ks2.size,unk:[...ks2].filter(k=>!known.has(k))};
+  }catch(e){toast(e.message,true);S.sl=null}finally{busy(false);render()}
+}
+function doSL(){
+  const s=S.sl;run(async()=>{
+    const dates=[...new Set(s.rows.map(r=>r[0]))];await api('slBegin',{dates});
+    for(let i=0;i<s.rows.length;i+=4000){busy(true,'Mengunggah '+Math.min(i+4000,s.rows.length)+' / '+s.rows.length);await api('slAppend',{rows:s.rows.slice(i,i+4000)})}
+    await api('slEnd',{file:s.name,count:s.rows.length,min:s.min,max:s.max});
+    S.per=s.max.slice(0,7);$('#per').value=S.per;S.sl=null;await load();
+  },'Memproses SL...','SL tersimpan — plan vs aktual terbarui');
+}
+
+// ====== Download (A1 = kode toko, B..AG = tanggal, isi hanya angka 1) ======
+function vDownload(){
+  const brs=[...new Set(S.d.toko.map(t=>t.branch))].sort();
+  return card(`<div class="text-sm font-bold mb-1">Download Jadwal Toko — ${S.per}</div><p class="text-xs text-slate-400 mb-4">Kolom A = kode toko. Kolom B = hari terakhir bulan lalu (carry, seperti file JPF), C–AG = tanggal 1–31. Sel hanya berisi angka 1 atau kosong.</p>
+   <div class="grid sm:grid-cols-2 gap-3 max-w-xl">
+    <div><label class="lbl">Isi</label><select id="dk" class="inp"><option value="plan">Plan (jadwal)</option><option value="act">Aktual (SL)</option></select></div>
+    <div><label class="lbl">Branch</label><select id="db" class="inp"><option value="">Semua</option>${brs.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
+    <div><label class="lbl">Format</label><select id="df" class="inp"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></div>
+    <div class="space-y-2 pt-5 text-xs"><label class="flex gap-2"><input type="checkbox" id="dc" checked> Sertakan kolom B (carry hari terakhir bulan lalu)</label>
+     <label class="flex gap-2"><input type="checkbox" id="dh"> Baris judul (A1 = KODE, tanggal di baris 1)</label>
+     <label class="flex gap-2"><input type="checkbox" id="de" checked> Hanya toko yang punya jadwal</label></div></div>
+   <button class="btn btn-p mt-5" onclick="doDL()">⬇️ Download</button>`);
+}
+function doDL(){
+  const d=S.d,kind=$('#dk').value,br=$('#db').value,fmt=$('#df').value,carry=$('#dc').checked,head=$('#dh').checked,only=$('#de').checked,nd=d.nd;
+  const src=kind==='plan'?d.plan:d.act,from=carry?0:1,to=31;const aoa=[];
+  if(head){const [y,m]=S.per.split('-').map(Number),pl=new Date(y,m-1,0).getDate();aoa.push(['KODE'].concat(Array.from({length:to-from+1},(_,i)=>from+i===0?pl:from+i)))}
+  d.toko.filter(t=>!br||t.branch===br).forEach(t=>{
+    const s=src[t.kode]||'';if(only&&!(s.slice(1,nd+1).includes('1')))return;
+    const r=[t.kode];for(let i=from;i<=to;i++)r.push(i<=nd&&s[i]==='1'?1:'');aoa.push(r)});
+  const ws=XLSX.utils.aoa_to_sheet(aoa),fn=`JADWAL_TOKO_${kind.toUpperCase()}_${S.per}`;
+  if(fmt==='csv'){const b=new Blob([XLSX.utils.sheet_to_csv(ws)],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn+'.csv';a.click()}
+  else{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'JADWAL');XLSX.writeFile(wb,fn+'.xlsx')}
+  toast('Terunduh: '+nf(aoa.length-(head?1:0))+' toko');
+}
+
+// ====== Riwayat ======
+function vRiwayat(){return card(`<div class="flex gap-2 mb-3"><input id="hk" class="inp !w-56" placeholder="Filter kode toko"><button class="btn" onclick="loadRiwayat()">Cari</button></div><div id="hl" class="overflow-auto max-h-[72vh] text-xs">Memuat...</div>`)}
+async function loadRiwayat(){
+  try{const h=await api('history',{kode:($('#hk')||{}).value||'',limit:500});$('#hl')&&($('#hl').innerHTML=`<table class="w-full"><thead><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Kode</th><th>Detail</th></tr></thead><tbody>${h.map(r=>`<tr><td class="whitespace-nowrap">${r.waktu}</td><td>${esc(r.user)}</td><td class="font-bold">${r.aksi}</td><td class="font-mono">${esc(r.kode)}</td><td class="text-slate-400 max-w-[420px] truncate" title="${esc(r.detail)}">${esc(r.detail)}</td></tr>`).join('')}</tbody></table>`)}catch(e){toast(e.message,true)}
+}
+
+// ====== Admin: user, backup, impor awal ======
+function vAdmin(){return`<div class="space-y-5">
+  ${card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Pengguna & Hak Akses</div><button class="btn btn-p" onclick="formUser()">+ Pengguna</button></div><div id="ul" class="overflow-auto max-h-[40vh] text-xs">Memuat...</div>
+   <p class="text-[11px] text-slate-500 mt-2">Peran: admin (semua), editor (lihat, ubah, upload, download), viewer (lihat, download). Izin bisa disesuaikan per orang. Izin "download" hanya menyembunyikan menu/tombol di aplikasi.</p>`)}
+  ${card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Backup (Google Drive)</div><button class="btn btn-p" onclick="backupNow()">Backup Sekarang</button></div><div id="bl" class="text-xs max-h-48 overflow-auto">Memuat...</div><p class="text-[11px] text-slate-500 mt-2">Otomatis tiap malam jam 02:00 + sebelum upload SL / impor. Menyimpan 60 backup terakhir.</p>`)}
+  ${card(`<div class="text-sm font-bold mb-1">Impor Awal dari File JPF (sekali di awal)</div><p class="text-xs text-slate-400 mb-3">Membaca sheet "DETAIL JPF VS REALISASI" dan "1. MASTER GROUP (SETTING)": master toko, group, tutup/GO, dan plan dasar periode di file. <b class="text-amber-400">Menimpa master toko & group yang ada.</b> Backup dibuat otomatis.</p><input type="file" accept=".xlsx" class="inp" onchange="imporJPF(this.files[0])">`)}</div>`}
+async function loadAdmin(){
+  try{S.users=await api('users.list');$('#ul')&&($('#ul').innerHTML=`<table class="w-full"><thead><tr><th>Username</th><th>Peran</th><th>Izin</th><th>Login terakhir</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td class="font-bold">${esc(u.username)} ${u.disabled?'<span class="text-red-400">(nonaktif)</span>':''}</td><td>${u.role}</td><td class="text-slate-400">${u.perms.join(', ')}</td><td>${(u.last||'').slice(0,22)}</td><td><button class="btn" onclick="formUser('${esc(u.username)}')">Edit</button></td></tr>`).join('')}</tbody></table>`);
+    S.backups=await api('backups');$('#bl')&&($('#bl').innerHTML=S.backups.length?S.backups.map(b=>`<div class="py-1 border-b border-slate-800"><a class="text-sky-400" target="_blank" href="${b.url}">${esc(b.name)}</a> <span class="text-slate-500">${b.at}</span></div>`).join(''):'Belum ada backup')}catch(e){toast(e.message,true)}
+}
+function formUser(name){
+  const u=S.users.find(x=>x.username===name)||{username:'',role:'viewer',perms:['view','download'],disabled:false},P=['view','edit','upload','download'];
+  openModal(`<h3 class="font-bold mb-4">${name?'Edit':'Tambah'} Pengguna</h3><div class="grid grid-cols-2 gap-3">
+   <div><label class="lbl">Username</label><input id="uu" class="inp" value="${esc(u.username)}" ${name?'readonly':''}></div><div><label class="lbl">Password ${name?'(kosongkan jika tidak diganti)':''}</label><input id="up" type="password" class="inp"></div>
+   <div><label class="lbl">Peran</label><select id="ur" class="inp" onchange="roleDef()">${['admin','editor','viewer'].map(r=>`<option ${u.role===r?'selected':''}>${r}</option>`).join('')}</select></div>
+   <div class="flex items-end"><label class="flex gap-2 text-xs"><input type="checkbox" id="ud" ${u.disabled?'checked':''}> Nonaktifkan akun</label></div>
+   <div class="col-span-2 flex gap-4 text-xs">${P.map(p=>`<label class="flex gap-1"><input type="checkbox" class="up" value="${p}" ${u.perms.includes(p)?'checked':''}> ${p}</label>`).join('')}</div></div>
+   <div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" onclick="saveUser()">Simpan</button></div>`);
+}
+function roleDef(){const r=$('#ur').value,D={admin:['view','edit','upload','download'],editor:['view','edit','upload','download'],viewer:['view','download']}[r];document.querySelectorAll('.up').forEach(c=>c.checked=D.includes(c.value))}
+function saveUser(){run(async()=>{await api('users.save',{username:$('#uu').value,password:$('#up').value,role:$('#ur').value,disabled:$('#ud').checked,perms:[...document.querySelectorAll('.up:checked')].map(c=>c.value)});closeModal();await loadAdmin()},'Menyimpan...','Pengguna disimpan (berlaku saat login ulang)')}
+function backupNow(){run(async()=>{const r=await api('backupNow');await loadAdmin();toast('Backup: '+r.name)},'Membuat backup...')}
+async function imporJPF(f){
+  if(!f||!confirm('Impor akan MENIMPA master toko & group. Lanjut?'))return;
+  run(async()=>{
+    busy(true,'Membaca file JPF (bisa 10–30 detik)...');
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array',sheets:['DETAIL JPF VS REALISASI','1. MASTER GROUP (SETTING)']});
+    const wd=wb.Sheets['DETAIL JPF VS REALISASI'],wm=wb.Sheets['1. MASTER GROUP (SETTING)'];if(!wd||!wm)throw new Error('Sheet DETAIL JPF VS REALISASI / 1. MASTER GROUP (SETTING) tidak ditemukan');
+    const D=XLSX.utils.sheet_to_json(wd,{header:1,raw:true,defval:''}),M=XLSX.utils.sheet_to_json(wm,{header:1,raw:true,defval:''});
+    const mo=Number(D[13][20]),yr=Number(D[13][21]);if(!mo||!yr)throw new Error('Bulan/tahun (U14/V14) tidak terbaca');
+    const periode=yr+'-'+pad(mo),stores=[],brCount={};
+    for(let i=16;i<D.length;i++){const r=D[i],kode=String(r[1]||'').trim().toUpperCase();if(!kode)continue;
+      let plan='';for(let c=19;c<=50;c++)plan+=Number(r[c])===1?'1':'0';
+      const g=String(r[10]||'').trim().toUpperCase(),b=String(r[7]||'').trim();
+      stores.push({kode,ins:String(r[2]||''),nama:String(r[3]||''),branch:b,group:g,ket:String(r[16]||'').trim(),tutup:toDS(r[17]),go:toDS(r[18]),plan});
+      if(g){brCount[g]=brCount[g]||{};brCount[g][b]=(brCount[g][b]||0)+1}}
+    const groups=[];for(let i=15;i<M.length;i++){const r=M[i],g=String(r[1]||'').trim().toUpperCase();if(!g||!/^[A-Z]{3}\d{2}$/.test(g))continue;
+      const bc=brCount[g]||{},br=Object.keys(bc).sort((a,b)=>bc[b]-bc[a])[0]||'';groups.push({group:g,branch:br,h1:String(r[2]||''),h2:String(r[3]||''),h3:String(r[4]||'')})}
+    if(!stores.length||!groups.length)throw new Error('Data toko/group tidak terbaca dari file');
+    busy(true,'Menyiapkan impor...');await api('imporBegin',{periode,groups});
+    for(let i=0;i<stores.length;i+=300){busy(true,'Impor toko '+Math.min(i+300,stores.length)+' / '+stores.length);await api('imporToko',{periode,rows:stores.slice(i,i+300)})}
+    await api('imporEnd',{periode,count:stores.length});S.per=periode;$('#per').value=periode;await load();
+    toast('Impor selesai: '+stores.length+' toko, '+groups.length+' group, periode '+periode);
+  },'Impor...');
+}
+</script>
+</body>
+</html>
