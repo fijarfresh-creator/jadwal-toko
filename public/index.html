@@ -69,7 +69,7 @@ function closeModal(){$('#modal').classList.add('hidden')}
 async function api(action,payload){
   const t=await auth.currentUser.getIdToken();
   const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({action,payload:payload||{}})});
-  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Gagal'); return j.data;
+  const tx=await r.text(); let j; try{j=JSON.parse(tx)}catch(e){throw new Error('Server error '+r.status+' — buka Vercel > Logs untuk detailnya')} if(!j.ok) throw new Error(j.error||'Gagal'); return j.data;
 }
 async function run(fn,msg,ok){try{busy(true,msg||'Memproses...');await fn();if(ok)toast(ok)}catch(e){toast(e.message,true)}finally{busy(false)}}
 
