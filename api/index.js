@@ -2,14 +2,21 @@
 // Tugas: verifikasi login, cek hak akses, lalu teruskan ke Google Apps Script (yang dilindungi GS_SECRET).
 const admin = require('firebase-admin');
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FB_PROJECT_ID,
-      clientEmail: process.env.FB_CLIENT_EMAIL,
-      privateKey: (process.env.FB_PRIVATE_KEY || '').replace(/\\n/g, '\n')
-    })
-  });
+// Inisialisasi dibuat aman: kalau variabel salah, API membalas JSON berisi penyebabnya (bukan crash 500 kosong).
+function initAdmin() {
+  if (admin.apps.length) return;
+  const pid = (process.env.FB_PROJECT_ID || '').trim();
+  const email = (process.env.FB_CLIENT_EMAIL || '').trim();
+  const key = (process.env.FB_PRIVATE_KEY || '').trim().replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
+  const miss = [];
+  if (!pid) miss.push('FB_PROJECT_ID');
+  if (!email) miss.push('FB_CLIENT_EMAIL');
+  if (!key) miss.push('FB_PRIVATE_KEY');
+  if (!process.env.GS_URL) miss.push('GS_URL');
+  if (!process.env.GS_SECRET) miss.push('GS_SECRET');
+  if (miss.length) throw new Error('Variabel belum diisi di Vercel: ' + miss.join(', '));
+  if (key.indexOf('BEGIN PRIVATE KEY') < 0) throw new Error('FB_PRIVATE_KEY salah format (harus diawali -----BEGIN PRIVATE KEY-----)');
+  admin.initializeApp({ credential: admin.credential.cert({ projectId: pid, clientEmail: email, privateKey: key }) });
 }
 
 const DOMAIN = '@outboundpro.app';
@@ -76,6 +83,7 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
   try {
+    initAdmin();
     const token = (req.headers.authorization || '').replace(/^Bearer /, '');
     if (!token) return res.status(401).json({ ok: false, error: 'Belum login' });
     let dec;
