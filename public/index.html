@@ -55,8 +55,8 @@ td{padding:5px 8px;font-size:12px;border-top:1px solid #1e293b}
 <div id="toast" class="fixed bottom-6 right-6 z-50 hidden bg-slate-900 border border-slate-700 rounded-xl px-5 py-3 text-sm"></div>
 
 <script>
-// ====== Firebase (project yang sama dengan aplikasi OutboundPro) ======
-firebase.initializeApp({apiKey:"AIzaSyCz-xOnqHT9NSagY188vHg8QDLopxWzuXA",authDomain:"outbound-7a30c.firebaseapp.com",projectId:"outbound-7a30c",appId:"1:854011773736:web:5f05f39a4a9857666b461d"});
+// ====== Firebase (project outbound-7a30c-32316) ======
+firebase.initializeApp({apiKey:"AIzaSyB5-Ch8K8oZqN94ojBIsD7mz0eGypnwP5w",authDomain:"outbound-7a30c-32316.firebaseapp.com",projectId:"outbound-7a30c-32316",appId:"1:948813668363:web:e5bd0f2dfe12fb0a70670e"});
 const auth=firebase.auth(), DOMAIN='@outboundpro.app';
 const S={per:'',d:null,c:null,me:null,tab:'dash',busy:false,f:{q:'',branch:'',group:'',status:'',page:0},sl:null,users:[],backups:[]};
 const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -77,7 +77,7 @@ async function run(fn,msg,ok){try{busy(true,msg||'Memproses...');await fn();if(o
 async function login(){
   const u=$('#lu').value.trim().toLowerCase(),p=$('#lp').value; $('#le').textContent='';
   if(!u||!p){$('#le').textContent='Isi username & password';return}
-  try{await auth.signInWithEmailAndPassword(u+DOMAIN,p)}catch(e){$('#le').textContent='Username atau password salah'}
+  try{await auth.signInWithEmailAndPassword(u.includes('@')?u:u+DOMAIN,p)}catch(e){$('#le').textContent='Username atau password salah'}
 }
 function logout(){auth.signOut().then(()=>location.reload())}
 auth.onAuthStateChanged(async u=>{
