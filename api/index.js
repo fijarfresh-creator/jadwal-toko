@@ -26,9 +26,9 @@ const DEFAULT_PERMS = { admin: ALL, editor: ['view', 'edit', 'upload', 'download
 // aksi -> izin yang dibutuhkan
 const NEED = {
   me: 'view', ver: 'view', state: 'view', history: 'view',
-  tokoSave: 'edit', setStatus: 'edit', pindahGroup: 'edit', gantiKode: 'edit', blackout: 'edit', groupSave: 'edit',
+  tokoSave: 'edit', setStatus: 'edit', pindahGroup: 'edit', gantiKode: 'edit', blackout: 'edit', groupSave: 'edit', groupDelete: 'edit', targetSave: 'edit',
   slBegin: 'upload', slAppend: 'upload', slEnd: 'upload',
-  imporBegin: 'admin', imporToko: 'admin', imporEnd: 'admin', backupNow: 'admin', backups: 'admin',
+  imporBegin: 'admin', imporToko: 'admin', imporEnd: 'admin', backupNow: 'admin', backups: 'admin', settingSave: 'admin', alarmEmail: 'admin',
   'users.list': 'admin', 'users.save': 'admin'
 };
 
