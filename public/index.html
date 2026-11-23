@@ -14,11 +14,29 @@ body{background:#090b11;color:#e2e8f0;font-family:system-ui,-apple-system,"Segoe
 .inp:focus{border-color:#DC2626}
 .btn{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700}
 .btn:hover{background:#334155}.btn-p{background:#DC2626;border-color:#DC2626}.btn-p:hover{background:#b91c1c}
-.btn:disabled{opacity:.5}
-th{font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;padding:6px 8px;position:sticky;top:0;background:#131824;z-index:2}
+.btn-s{padding:4px 10px;font-size:11px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+th{font-size:10px;text-transform:uppercase;color:#94a3b8;text-align:left;padding:6px 8px;position:sticky;top:0;background:#131824;z-index:2;white-space:nowrap}
 td{padding:5px 8px;font-size:12px;border-top:1px solid #1e293b}
 .day{width:22px;min-width:22px;text-align:center;padding:2px 0;font-size:10px}
 .lbl{font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid transparent;white-space:nowrap}
+.c-crit{background:rgba(127,29,29,.45);color:#fca5a5;border-color:#dc2626}
+.c-warn{background:rgba(120,53,15,.45);color:#fcd34d;border-color:#d97706}
+.c-info{background:#1e293b;color:#94a3b8;border-color:#334155}
+.c-ok{background:rgba(6,78,59,.45);color:#6ee7b7;border-color:#059669}
+.c-blue{background:rgba(12,74,110,.45);color:#7dd3fc;border-color:#0284c7}
+.bar{height:8px;border-radius:4px;background:#1e293b;overflow:hidden;min-width:60px}.bar>i{display:block;height:100%}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer}
+.tab.on{background:#DC2626;border-color:#DC2626;color:#fff}
+.banner{border-radius:16px;padding:18px 22px;border:1px solid}
+.b-ok{background:rgba(6,78,59,.35);border-color:#059669}.b-track{background:rgba(12,74,110,.35);border-color:#0284c7}
+.b-risk{background:rgba(120,53,15,.4);border-color:#d97706}.b-bad{background:rgba(127,29,29,.45);border-color:#dc2626}.b-none,.b-wait{background:#131824;border-color:#334155}
+.navbadge{margin-left:6px;background:#DC2626;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:1px 7px}
+.pulse{animation:pl 1.4s infinite}@keyframes pl{0%,100%{opacity:1}50%{opacity:.45}}
+.rowc{background:rgba(127,29,29,.22)}.roww{background:rgba(120,53,15,.2)}
+.scroll{overflow:auto}
 </style>
 </head>
 <body>
@@ -52,25 +70,32 @@ td{padding:5px 8px;font-size:12px;border-top:1px solid #1e293b}
 
 <div id="modal" class="hidden fixed inset-0 z-40 bg-black/70 flex items-start justify-center overflow-auto p-6" onclick="if(event.target===this)closeModal()"><div id="mbox" class="bg-card border border-slate-700 rounded-2xl p-6 w-full max-w-xl my-auto"></div></div>
 <div id="busy" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center"><div class="bg-card border border-slate-700 rounded-2xl px-8 py-6 text-center"><div class="animate-spin w-6 h-6 border-4 border-slate-600 border-t-primary rounded-full mx-auto mb-3"></div><div id="busyMsg" class="text-sm"></div></div></div>
-<div id="toast" class="fixed bottom-6 right-6 z-50 hidden bg-slate-900 border border-slate-700 rounded-xl px-5 py-3 text-sm"></div>
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden bg-slate-900 border border-slate-700 rounded-xl px-5 py-3 text-sm max-w-md"></div>
 
 <script>
 // ====== Firebase (project outbound-7a30c-32316) ======
 firebase.initializeApp({apiKey:"AIzaSyB5-Ch8K8oZqN94ojBIsD7mz0eGypnwP5w",authDomain:"outbound-7a30c-32316.firebaseapp.com",projectId:"outbound-7a30c-32316",appId:"1:948813668363:web:e5bd0f2dfe12fb0a70670e"});
 const auth=firebase.auth(), DOMAIN='@outboundpro.app';
-const S={per:'',d:null,c:null,me:null,tab:'dash',busy:false,f:{q:'',branch:'',group:'',status:'',page:0},sl:null,users:[],backups:[]};
-const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const can=p=>S.me&&S.me.perms.includes(p), nf=n=>Number(n).toLocaleString('id-ID');
-const pad=n=>String(n).padStart(2,'0'), HARI=['SENIN','SELASA','RABU','KAMIS','JUMAT','SABTU','MINGGU'];
-function toast(m,err){const t=$('#toast');t.textContent=m;t.className='fixed bottom-6 right-6 z-50 bg-slate-900 border rounded-xl px-5 py-3 text-sm '+(err?'border-red-500 text-red-300':'border-emerald-600');setTimeout(()=>t.classList.add('hidden'),3500)}
+const S={per:'',d:null,c:null,me:null,tab:'dash',busy:false,cutSel:null,tf:'all',f:{q:'',branch:'',group:'',status:'',page:0,ps:40},gf:{q:'',branch:'',page:0},sl:null,users:[],backups:[],bo:{}};
+const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const can=p=>S.me&&S.me.perms.includes(p), nf=n=>Number(n||0).toLocaleString('id-ID');
+const pad=n=>String(n).padStart(2,'0'), HARI=['SENIN','SELASA','RABU','KAMIS','JUMAT','SABTU','MINGGU'], HARI_JS=['MINGGU','SENIN','SELASA','RABU','KAMIS','JUMAT','SABTU'];
+const BLN=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'], BLN_FULL=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const pct=(a,b)=>b?Math.round(a/b*1000)/10:0;
+const fmtD=s=>s?(+s.slice(8,10))+' '+BLN[+s.slice(5,7)-1]+' '+s.slice(0,4):'-';
+const curPer=()=>{const t=new Date();return t.getFullYear()+'-'+pad(t.getMonth()+1)};
+const dayOf=(per,i)=>per+'-'+pad(i);
+const dowName=(per,i)=>HARI_JS[new Date(+per.slice(0,4),+per.slice(5,7)-1,i,12).getDay()];
+function toast(m,err){const t=$('#toast');t.textContent=m;t.className='fixed bottom-6 right-6 z-50 bg-slate-900 border rounded-xl px-5 py-3 text-sm max-w-md '+(err?'border-red-500 text-red-300':'border-emerald-600');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add('hidden'),err?7000:3500)}
 function busy(on,m){S.busy=on;$('#busy').classList.toggle('hidden',!on);$('#busyMsg').textContent=m||''}
-function openModal(h){$('#mbox').innerHTML=h;$('#modal').classList.remove('hidden')}
+function openModal(h,wide){$('#mbox').className='bg-card border border-slate-700 rounded-2xl p-6 w-full my-auto '+(wide?'max-w-4xl':'max-w-xl');$('#mbox').innerHTML=h;$('#modal').classList.remove('hidden')}
 function closeModal(){$('#modal').classList.add('hidden')}
 async function api(action,payload){
   const t=await auth.currentUser.getIdToken();
   const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({action,payload:payload||{}})});
   const tx=await r.text(); let j; try{j=JSON.parse(tx)}catch(e){throw new Error('Server error '+r.status+' — buka Vercel > Logs untuk detailnya')} if(!j.ok) throw new Error(j.error||'Gagal'); return j.data;
 }
+async function apiRetry(action,payload,tries){let e;for(let i=0;i<(tries||3);i++){try{return await api(action,payload)}catch(x){e=x;if(/izin|login|sesi|tidak valid|wajib|salah/i.test(x.message))throw x;await new Promise(r=>setTimeout(r,800*(i+1)))}}throw e}
 async function run(fn,msg,ok){try{busy(true,msg||'Memproses...');await fn();if(ok)toast(ok)}catch(e){toast(e.message,true)}finally{busy(false)}}
 
 // ====== Auth ======
@@ -86,7 +111,7 @@ auth.onAuthStateChanged(async u=>{
     S.me=await api('me'); if(!can('view')) throw new Error('Akun ini belum punya akses ke Jadwal Toko. Hubungi admin.');
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
     $('#who').textContent=S.me.name;$('#role').textContent=S.me.role;
-    const t=new Date();S.per=t.getFullYear()+'-'+pad(t.getMonth()+1);$('#per').value=S.per;
+    S.per=curPer();$('#per').value=S.per;
     buildNav();await load();setInterval(poll,20000);
   }catch(e){$('#le').textContent=e.message;auth.signOut()}
 });
@@ -95,220 +120,582 @@ auth.onAuthStateChanged(async u=>{
 async function load(){
   S.d=await api('state',{periode:S.per});calc();render();$('#sync').textContent='Sinkron '+new Date().toLocaleTimeString('id-ID');
 }
-async function poll(){ if(!S.d||S.busy)return; try{const v=await api('ver');if(v.ver!==S.d.ver)await load()}catch(e){} }
-function setPer(v){if(!v)return;S.per=v;S.f.page=0;run(load,'Memuat periode...')}
+async function poll(){ if(!S.d||S.busy||!$('#modal').classList.contains('hidden'))return; try{const v=await api('ver');if(v.ver!==S.d.ver)await load()}catch(e){} }
+function setPer(v){if(!v)return;S.per=v;S.cutSel=null;S.f.page=0;run(load,'Memuat periode...')}
 function cnt(s,a,b){let n=0;for(let i=a;i<=b;i++)if(s&&s[i]==='1')n++;return n}
+function autoCut(d){
+  const cur=curPer();
+  if(d.lastSL&&d.lastSL.slice(0,7)===S.per) return Math.min(+d.lastSL.slice(8,10),d.nd);
+  if(S.per<cur) return d.nd; if(S.per===cur) return Math.min(new Date().getDate(),d.nd); return 0;
+}
+const newBr=()=>({n:0,reg:0,p:0,a:0,pc:0,ac:0,tutup:0,go:0,ach:0,bel:0,T:0,tAuto:false});
 function calc(){
-  const d=S.d,nd=d.nd,t=new Date(),cur=t.getFullYear()+'-'+pad(t.getMonth()+1);
-  const cut=S.per===cur?t.getDate():(S.per<cur?nd:0);
-  const c={cut,nd,tk:{},br:{},pd:new Array(nd+1).fill(0),ad:new Array(nd+1).fill(0),P:0,A:0,Pc:0,Ac:0,tutup:0,go:0,aktif:0};
+  const d=S.d,nd=d.nd,auto=autoCut(d),cut=S.cutSel!=null?Math.max(0,Math.min(nd,S.cutSel)):auto;
+  const c={cut,auto,nd,tk:{},br:{},pd:new Array(nd+1).fill(0),ad:new Array(nd+1).fill(0),P:0,A:0,Pc:0,Ac:0,tutup:0,go:0,aktif:0,ach:0,bel:0,T:0,finished:(S.per<curPer())||cut>=nd};
+  d.branches.forEach(b=>c.br[b]=newBr());
   d.toko.forEach(k=>{
-    const pl=d.plan[k.kode]||'',ac=d.act[k.kode]||'';
-    const x={p:cnt(pl,1,nd),a:cnt(ac,1,nd),pc:cnt(pl,1,cut),ac:cnt(ac,1,cut)};c.tk[k.kode]=x;
-    const b=c.br[k.branch]=c.br[k.branch]||{n:0,p:0,a:0,pc:0,ac:0,tutup:0,go:0};
-    if(x.p>0)b.n++;b.p+=x.p;b.a+=x.a;b.pc+=x.pc;b.ac+=x.ac;
+    const pl=d.plan[k.kode]||'',ac=d.act[k.kode]||'',x={p:cnt(pl,1,nd),a:cnt(ac,1,nd),pc:cnt(pl,1,cut),ac:cnt(ac,1,cut)};c.tk[k.kode]=x;
+    const b=c.br[k.branch]=c.br[k.branch]||newBr();
+    b.reg++;if(x.p>0)b.n++;b.p+=x.p;b.a+=x.a;b.pc+=x.pc;b.ac+=x.ac;
+    if(x.pc>0){if(x.ac>=x.pc){b.ach++;c.ach++}else{b.bel++;c.bel++}}
     if(k.status==='TUTUP'){b.tutup++;c.tutup++}else if(k.status==='GO'){b.go++;c.go++}
     c.P+=x.p;c.A+=x.a;c.Pc+=x.pc;c.Ac+=x.ac;if(x.p>0)c.aktif++;
     for(let i=1;i<=nd;i++){if(pl[i]==='1')c.pd[i]++;if(ac[i]==='1')c.ad[i]++}
-  });S.c=c;
+  });
+  const T=d.target.total||0,ex=d.target.branch||{};let exSum=0,nAuto=0;
+  Object.keys(c.br).forEach(b=>{if(ex[b]>0)exSum+=ex[b];else nAuto+=c.br[b].n});
+  Object.keys(c.br).forEach(b=>{const x=c.br[b];
+    if(ex[b]>0){x.T=ex[b];x.tAuto=false}else if(T>0&&nAuto>0){x.T=Math.round(Math.max(0,T-exSum)*x.n/nAuto);x.tAuto=true}});
+  c.T=T>0?T:exSum;
+  c.st=tstat(c.T,c.P,c.A,c.Pc,c);
+  Object.keys(c.br).forEach(b=>{const x=c.br[b];x.st=tstat(x.T,x.p,x.a,x.pc,c)});
+  S.c=c;
 }
-const pct=(a,b)=>b?Math.round(a/b*1000)/10:0;
+// Status pencapaian target: TERCAPAI / TIDAK TERCAPAI (bulan selesai) / ON TRACK / BERISIKO (proyeksi = aktual + sisa plan x %aktual berjalan)
+function tstat(T,P,A,Pc,c){
+  if(!T) return {k:'none',t:'Target belum diisi',proj:0,gap:0};
+  const proj=Math.round(A+(P-Pc)*(Pc>0?A/Pc:1));
+  if(A>=T) return {k:'ok',t:'TERCAPAI',proj,gap:0};
+  if(c.finished) return {k:'bad',t:'TIDAK TERCAPAI',proj:A,gap:T-A};
+  if(c.cut===0) return {k:'wait',t:'BELUM MULAI',proj:P,gap:T-P};
+  return proj>=T?{k:'track',t:'ON TRACK',proj,gap:0}:{k:'risk',t:'BERISIKO',proj,gap:T-proj};
+}
+const STC={ok:'c-ok',track:'c-blue',risk:'c-warn',bad:'c-crit',none:'c-info',wait:'c-info'};
+const stChip=st=>`<span class="chip ${STC[st.k]}">${st.t}</span>`;
+
+// ====== Alarm (dihitung server, selalu untuk bulan berjalan) ======
+const ALT={GO_HARI_INI:'GO hari ini',GO_SEGERA:'GO segera',GO_AKAN:'GO akan datang',GO_BELUM_SL:'GO belum ada SL',TUTUP_HARI_INI:'Tutup hari ini',TUTUP_SEGERA:'Tutup segera',TUTUP_AKAN:'Tutup akan datang',TUTUP_ADA_SL:'Tutup tapi ada SL',BELUM_KIRIM:'> 4 hari belum kirim'};
+const LVC={crit:'c-crit',warn:'c-warn',info:'c-info'};
+const alChip=a=>`<span class="chip ${LVC[a.level]} ${a.level==='crit'?'pulse':''}" title="${esc(a.msg)}">${ALT[a.type]||a.type}${a.type.endsWith('SEGERA')?' H-'+a.hari:''}</span>`;
+function alMap(){const m={};(S.d.alarm.list||[]).forEach(a=>(m[a.kode]=m[a.kode]||[]).push(a));return m}
+const alActive=()=>(S.d.alarm.list||[]).filter(a=>a.level!=='info');
+const alStatus=()=>alActive().filter(a=>/^(GO|TUTUP)/.test(a.type));
 
 // ====== Navigasi ======
 const MENU=[['dash','📊','Dashboard','view'],['jadwal','🗓️','Jadwal Toko','view'],['status','🏪','Tutup / GO','view'],['libur','⛔','Libur / SO','view'],['group','🚛','Group','view'],
   ['upload','⬆️','Upload SL','upload'],['download','⬇️','Download','download'],['riwayat','🕘','Riwayat','view'],['admin','🛡️','Admin','admin']];
-function buildNav(){$('#nav').innerHTML=MENU.filter(m=>can(m[3])).map(m=>`<button id="n-${m[0]}" onclick="go('${m[0]}')" class="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:bg-white/5">${m[1]} ${m[2]}</button>`).join('')}
-function go(t){S.tab=t;S.f.page=0;render()}
+function buildNav(){$('#nav').innerHTML=MENU.filter(m=>can(m[3])).map(m=>`<button id="n-${m[0]}" onclick="go('${m[0]}')" class="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:bg-white/5">${m[1]} ${m[2]}<span id="nb-${m[0]}"></span></button>`).join('')}
+function go(t){S.tab=t;S.f.page=0;S.gf.page=0;render()}
+let _rendering=false;
 function render(){
-  if(!S.d)return;
+  if(!S.d||_rendering)return;      // cegah render ganda (mis. event blur/change saat elemen fokus dihapus)
+  _rendering=true;try{renderNow()}finally{_rendering=false}
+}
+function renderNow(){
   document.querySelectorAll('#nav button').forEach(b=>b.className='w-full text-left px-3 py-2 rounded-xl text-sm font-semibold '+(b.id==='n-'+S.tab?'bg-white/10 text-white':'text-slate-400 hover:bg-white/5'));
+  const nb=$('#nb-status');if(nb){const n=alStatus().length;nb.innerHTML=n?`<span class="navbadge ${alStatus().some(a=>a.level==='crit')?'pulse':''}">${n}</span>`:''}
   const m=MENU.find(x=>x[0]===S.tab);$('#title').textContent=m?m[2]:'';
   const V={dash:vDash,jadwal:vJadwal,status:vStatus,libur:vLibur,group:vGroup,upload:vUpload,download:vDownload,riwayat:vRiwayat,admin:vAdmin};
-  $('#main').innerHTML=V[S.tab]();if(S.tab==='riwayat')loadRiwayat();if(S.tab==='admin')loadAdmin();
+  try{$('#main').innerHTML=V[S.tab]()}catch(e){console.error(e);$('#main').innerHTML='<div class="text-red-400 text-sm">Gagal menampilkan halaman: '+esc(e.message)+'</div>'}
+  if(S.tab==='riwayat')loadRiwayat();if(S.tab==='admin')loadAdmin();if(S.tab==='libur')loadLiburHist();
 }
 const card=(t,b)=>`<div class="bg-card border border-slate-800 rounded-2xl p-5 ${b||''}">${t}</div>`;
-const kpi=(l,v,s)=>card(`<div class="text-[10px] font-bold uppercase text-slate-400">${l}</div><div class="text-3xl font-extrabold mt-2">${v}</div><div class="text-[11px] text-slate-500 mt-1">${s||''}</div>`);
+const kpi=(l,v,s,cls)=>card(`<div class="text-[10px] font-bold uppercase text-slate-400">${l}</div><div class="text-3xl font-extrabold mt-2 ${cls||''}">${v}</div><div class="text-[11px] text-slate-500 mt-1">${s||''}</div>`);
+const optList=(a,sel,ph)=>(ph!=null?`<option value="">${ph}</option>`:'')+a.map(o=>`<option ${o===sel?'selected':''}>${esc(o)}</option>`).join('');
+const refresh=async()=>{closeModal();await load()};
 
 // ====== Dashboard ======
+const dnum=s=>Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))/864e5;
+const cd=s=>{if(!s)return'';const n=Math.round(dnum(s)-dnum(S.d.today));return n===0?'HARI INI':n>0?'H-'+n:'H+'+(-n)};
 function vDash(){
-  const c=S.c,d=S.d;
-  const rows=Object.keys(c.br).sort().map(b=>{const x=c.br[b];return`<tr><td class="font-bold">${esc(b)}</td><td>${nf(x.n)}</td><td>${nf(x.p)}</td><td>${nf(x.pc)}</td><td>${nf(x.ac)}</td><td>${nf(x.ac-x.pc)}</td>
-    <td><div class="flex items-center gap-2"><div class="w-24 h-2 bg-slate-800 rounded"><div class="h-2 rounded ${pct(x.ac,x.pc)>=95?'bg-emerald-500':'bg-red-500'}" style="width:${Math.min(100,pct(x.ac,x.pc))}%"></div></div>${pct(x.ac,x.pc)}%</div></td><td>${x.tutup}</td><td>${x.go}</td></tr>`}).join('');
-  const mx=Math.max(1,...c.pd,...c.ad);
-  const bars=c.pd.map((p,i)=>i?`<div class="flex flex-col items-center gap-1" title="Tgl ${i}: plan ${p}, aktual ${c.ad[i]}"><div class="flex items-end gap-px h-24"><div class="w-2 bg-slate-600" style="height:${p/mx*100}%"></div><div class="w-2 bg-primary" style="height:${c.ad[i]/mx*100}%"></div></div><div class="text-[9px] text-slate-500">${i}</div></div>`:'').join('');
+  const c=S.c,d=S.d,al=d.alarm,e=can('edit'),pn=BLN_FULL[+S.per.slice(5)-1]+' '+S.per.slice(0,4),st=c.st;
+  const glob=(al.global||[]).map(g=>`<div class="chip ${LVC[g.level]} !whitespace-normal">⏱ ${esc(g.msg)}</div>`).join(' ');
+  const tIn=e?`<div class="flex items-end gap-2 flex-wrap"><div><label class="lbl">Target kiriman ${pn}</label><input id="tgT" type="number" min="0" class="inp !w-40" value="${d.target.total||''}" placeholder="mis. 27724"></div>
+    <button class="btn btn-p" onclick="saveTargetTotal()">Simpan target</button><button class="btn" onclick="openTargetBr()">Target per branch</button></div>`:'';
+  const sub=!c.T?`Isi angka target bulan ini di kolom sebelah kanan, lalu web otomatis menghitung pencapaian plan & aktual.`:
+    `Aktual s/d H${c.cut}: <b>${nf(c.A)}</b> (${pct(c.A,c.T)}% dari target) · Plan bulan <b>${nf(c.P)}</b> ${c.P>=c.T?'<span class="text-emerald-400">(cukup, lebih '+nf(c.P-c.T)+')</span>':'<span class="text-red-400">(kurang '+nf(c.T-c.P)+' dari target!)</span>'} · Proyeksi akhir bulan <b>${nf(st.proj)}</b>`;
+  const cutIn=`<div class="flex items-end gap-2"><div><label class="lbl">Hitung s/d tanggal</label><input id="cutI" type="number" min="0" max="${c.nd}" class="inp !w-24" value="${c.cut}" onchange="setCut(this.value)"></div>
+    <button class="btn btn-s" onclick="setCut('')" title="Otomatis mengikuti tanggal SL terakhir">Otomatis (H${c.auto})</button></div>`;
+  const ico={ok:'✅',track:'📈',risk:'⚠️',bad:'❌',none:'🎯',wait:'⏳'}[st.k];
+  const analisa=analisaList().map(a=>`<li class="flex gap-2 py-1.5 border-b border-slate-800/70 last:border-0"><span>${a.i}</span><span class="text-sm ${a.cls||''}">${a.t}</span></li>`).join('');
+  const brs=Object.keys(c.br).filter(b=>c.br[b].reg>0).sort((a,b)=>d.branches.indexOf(a)-d.branches.indexOf(b));
+  const row=(b,x,tot)=>`<tr class="${tot?'font-bold bg-white/5':''}"><td class="font-bold">${esc(b)}</td><td>${nf(x.n)}</td><td>${x.T?nf(x.T)+(x.tAuto?' <span class="text-slate-500" title="dibagi otomatis menurut jumlah toko">~</span>':''):'-'}</td><td>${nf(x.p)}</td>
+    <td class="${x.T&&x.p<x.T?'text-red-400':'text-emerald-400'}">${x.T?nf(x.p-x.T):'-'}</td><td>${nf(x.pc)}</td><td>${nf(x.ac)}</td><td>${nf(x.ac-x.pc)}</td>
+    <td><div class="flex items-center gap-2"><div class="bar w-20"><i class="${pct(x.ac,x.pc)>=95?'bg-emerald-500':pct(x.ac,x.pc)>=80?'bg-amber-500':'bg-red-500'}" style="width:${Math.min(100,pct(x.ac,x.pc))}%"></i></div>${pct(x.ac,x.pc)}%</div></td>
+    <td>${x.T?pct(x.a,x.T)+'%':'-'}</td><td class="text-emerald-400">${nf(x.ach)}</td><td class="${x.bel?'text-amber-400':''}">${nf(x.bel)}</td><td>${x.tutup}</td><td>${x.go}</td><td>${stChip(x.st||tstat(0,0,0,0,c))}</td></tr>`;
+  const tot=Object.assign(newBr(),{n:c.aktif,p:c.P,a:c.A,pc:c.Pc,ac:c.Ac,ach:c.ach,bel:c.bel,tutup:c.tutup,go:c.go,T:c.T,st:st});
+  const rows=brs.map(b=>row(b,c.br[b])).join('')+row('TOTAL',tot,true);
   return`<div class="space-y-5">
    ${d.hasBase?'':card('<span class="text-amber-400 text-sm">Periode ini belum punya plan dasar dari file — jadwal dihitung dari aturan hari tiap group. Impor awal ada di menu Admin.</span>')}
-   <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">${kpi('Toko berjadwal',nf(c.aktif),'dari '+nf(d.toko.length)+' toko terdaftar')}${kpi('Plan bulan ini',nf(c.P),'kiriman')}
-    ${kpi('Plan s/d H'+c.cut,nf(c.Pc),'tanggal 1–'+c.cut)}${kpi('Aktual (SL)',nf(c.Ac),pct(c.Ac,c.Pc)+'% dari plan')}${kpi('Tutup / GO',c.tutup+' / '+c.go,'status toko')}</div>
-   ${card(`<div class="text-sm font-bold mb-3">Rekap per Branch</div><div class="overflow-auto"><table class="w-full"><thead><tr><th>Branch</th><th>Toko</th><th>Plan bulan</th><th>Plan s/d H${c.cut}</th><th>Aktual</th><th>Gap</th><th>% Aktual</th><th>Tutup</th><th>GO</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="text-[11px] text-slate-500 mt-3">Selisih plan vs aktual pada hari Stock Opname nasional bisa dicatat di menu Libur / SO agar plan otomatis ikut menyesuaikan.</p>`)}
-   ${card(`<div class="text-sm font-bold mb-3">Per Hari <span class="text-slate-500 font-normal">(abu = plan, merah = aktual)</span></div><div class="flex gap-1 overflow-auto">${bars}</div>`)}</div>`;
+   ${glob?`<div class="flex flex-wrap gap-2">${glob}</div>`:''}
+   <div class="banner b-${st.k}"><div class="flex flex-wrap justify-between gap-4 items-start"><div class="min-w-[260px] flex-1"><div class="text-[10px] font-bold uppercase text-slate-400">Pencapaian target ${pn}</div>
+     <div class="text-2xl font-extrabold mt-1">${ico} ${st.t}${st.gap>0&&st.k!=='wait'?' <span class="text-base font-bold text-slate-300">· kurang '+nf(st.gap)+' kiriman</span>':''}</div><div class="text-xs text-slate-300 mt-2 leading-relaxed">${sub}</div></div>
+     <div class="space-y-3">${tIn}${cutIn}</div></div>
+     ${c.T?`<div class="mt-4"><div class="bar !h-3"><i class="${st.k==='ok'?'bg-emerald-500':st.k==='bad'?'bg-red-500':'bg-sky-500'}" style="width:${Math.min(100,pct(c.A,c.T))}%"></i></div><div class="flex justify-between text-[10px] text-slate-400 mt-1"><span>0</span><span>Aktual ${nf(c.A)} / Target ${nf(c.T)} (${pct(c.A,c.T)}%)</span><span>${nf(c.T)}</span></div></div>`:''}</div>
+   <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">${kpi('Toko berjadwal',nf(c.aktif),'dari '+nf(d.toko.length)+' toko terdaftar')}${kpi('Plan bulan ini',nf(c.P),'kiriman')}
+    ${kpi('Plan s/d H'+c.cut,nf(c.Pc),'tanggal 1–'+c.cut)}${kpi('Aktual (SL)',nf(c.Ac),pct(c.Ac,c.Pc)+'% dari plan',c.Pc&&pct(c.Ac,c.Pc)<90?'text-amber-400':'')}
+    ${kpi('Toko achieve',nf(c.ach),'belum achieve: '+nf(c.bel),c.bel?'':'text-emerald-400')}${kpi('Tutup / GO',c.tutup+' / '+c.go,'status toko')}</div>
+   ${card(`<div class="flex justify-between items-center mb-3"><div class="text-sm font-bold">🚨 Alarm toko GO &amp; Tutup</div><button class="btn btn-s" onclick="go('status')">Buka Tutup / GO →</button></div>${alarmBlock()}`)}
+   ${card(`<div class="text-sm font-bold mb-2">🧠 Ringkasan analisa</div><ul>${analisa}</ul>`)}
+   ${card(`<div class="text-sm font-bold mb-3">Rekap per Branch — plan vs aktual vs target</div><div class="scroll"><table class="w-full"><thead><tr><th>Branch</th><th>Toko</th><th>Target</th><th>Plan bulan</th><th>Plan − Target</th><th>Plan s/d H${c.cut}</th><th>Aktual</th><th>Gap</th><th>% Aktual</th><th>% Target</th><th>Toko achieve</th><th>Toko belum</th><th>Tutup</th><th>GO</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="text-[11px] text-slate-500 mt-3">Target branch yang tidak diisi dibagi otomatis menurut jumlah toko (tanda ~). "Toko achieve" = toko yang aktualnya ≥ plan sampai H${c.cut}. Libur / SO nasional dicatat di menu Libur / SO agar plan otomatis menyesuaikan.</p>`)}
+   ${card(`<div class="text-sm font-bold mb-3">Kumulatif plan vs aktual vs target</div>${cumChart()}`)}
+   ${card(`<div class="text-sm font-bold mb-3">Per Hari <span class="text-slate-500 font-normal">(abu = plan, merah = aktual)</span></div><div class="flex gap-1 overflow-auto">${dayBars()}</div>`)}${slBlock()}</div>`;
+}
+function setCut(v){S.cutSel=v===''?null:Math.max(0,Math.min(S.d.nd,Math.round(+v)||0));calc();render()}
+function saveTargetTotal(){const v=$('#tgT').value;run(async()=>{await api('targetSave',{periode:S.per,scope:'ALL',target:v});await load()},'Menyimpan target...',v?'Target disimpan':'Target dihapus')}
+function openTargetBr(){
+  const c=S.c,ex=S.d.target.branch||{},brs=Object.keys(c.br).filter(b=>c.br[b].reg>0);
+  openModal(`<div class="flex justify-between mb-3"><h3 class="font-bold">Target per Branch — ${S.per}</h3><button class="btn" onclick="closeModal()">✕</button></div>
+   <p class="text-xs text-slate-400 mb-3">Kosongkan bila ingin dibagi otomatis dari target total menurut jumlah toko. Isi angka bila branch punya target sendiri.</p>
+   <div class="space-y-2">${brs.map(b=>`<div class="grid grid-cols-3 gap-2 items-center"><div class="text-sm font-bold">${esc(b)}</div><input class="inp tb" data-b="${esc(b)}" type="number" min="0" value="${ex[b]||''}" placeholder="auto ≈ ${nf(c.br[b].tAuto?c.br[b].T:0)}"><div class="text-[11px] text-slate-500">plan ${nf(c.br[b].p)}</div></div>`).join('')}</div>
+   <div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" onclick="saveTargetBr()">Simpan</button></div>`);
+}
+function saveTargetBr(){
+  const ex=S.d.target.branch||{},ch=[...document.querySelectorAll('.tb')].filter(i=>String(ex[i.dataset.b]||'')!==i.value.trim());
+  if(!ch.length){closeModal();return}
+  run(async()=>{for(const i of ch)await api('targetSave',{periode:S.per,scope:'BRANCH',nilai:i.dataset.b,target:i.value});await refresh()},'Menyimpan target...','Target branch disimpan');
+}
+function alarmBlock(){
+  const act=alActive();if(!act.length)return'<div class="chip c-ok">✅ Tidak ada alarm aktif — semua toko GO &amp; tutup terpantau aman</div>';
+  const by={};act.forEach(a=>(by[a.type]=by[a.type]||[]).push(a));
+  const order=['GO_HARI_INI','GO_SEGERA','GO_BELUM_SL','TUTUP_HARI_INI','TUTUP_SEGERA','TUTUP_ADA_SL','BELUM_KIRIM'];
+  const chips=order.filter(t=>by[t]).map(t=>`<span class="chip ${LVC[by[t][0].level]} cursor-pointer" onclick="S.tf='alarm';go('status')">${ALT[t]}: <b>${by[t].length}</b></span>`).join(' ');
+  const top=act.filter(a=>a.type!=='BELUM_KIRIM').slice(0,6).map(a=>`<div class="flex items-center gap-2 py-1 border-b border-slate-800/70 text-xs cursor-pointer hover:bg-white/5" onclick="openToko('${esc(a.kode)}')">${alChip(a)}<b class="font-mono">${esc(a.kode)}</b><span class="truncate">${esc(a.nama)}</span><span class="text-slate-500 ml-auto">${esc(a.branch)}</span></div>`).join('');
+  return`<div class="flex flex-wrap gap-2 mb-3">${chips}</div>${top}`;
+}
+function analisaList(){
+  const c=S.c,d=S.d,L=[],pn=BLN_FULL[+S.per.slice(5)-1],st=c.st,sisa=c.nd-c.cut;
+  if(!c.T)L.push({i:'🎯',t:'Target bulan '+pn+' belum diisi — isi di banner atas agar status tercapai / tidak otomatis muncul.',cls:'text-amber-300'});
+  else if(st.k==='ok')L.push({i:'✅',t:`<b>Target tercapai</b>: aktual ${nf(c.A)} sudah ≥ target ${nf(c.T)} (${pct(c.A,c.T)}%).`});
+  else if(st.k==='bad')L.push({i:'❌',t:`<b>Target bulan ${pn} tidak tercapai</b>: aktual ${nf(c.A)} dari target ${nf(c.T)} (${pct(c.A,c.T)}%), kurang ${nf(st.gap)} kiriman.`,cls:'text-red-300'});
+  else if(st.k==='risk')L.push({i:'⚠️',t:`<b>Berisiko tidak tercapai</b>: proyeksi akhir bulan ${nf(st.proj)} vs target ${nf(c.T)} (kurang ${nf(st.gap)}). ${sisa>0?'Butuh rata-rata <b>'+nf(Math.ceil((c.T-c.A)/sisa))+'</b> kiriman/hari selama '+sisa+' hari tersisa (plan rata-rata '+nf(Math.round((c.P-c.Pc)/sisa))+'/hari).':''}`,cls:'text-amber-300'});
+  else if(st.k==='track')L.push({i:'📈',t:`<b>On track</b>: proyeksi akhir bulan ${nf(st.proj)} ≥ target ${nf(c.T)}.`,cls:'text-sky-300'});
+  else L.push({i:'⏳',t:'Periode belum dimulai — plan bulan ini '+nf(c.P)+(c.T?(c.P>=c.T?' (cukup untuk target).':' (kurang '+nf(c.T-c.P)+' dari target).'):'.')});
+  if(c.T&&c.P<c.T)L.push({i:'📋',t:`Plan bulan ini (${nf(c.P)}) <b>lebih kecil ${nf(c.T-c.P)}</b> dari target — tambah jadwal / toko GO agar target mungkin tercapai.`,cls:'text-red-300'});
+  if(c.cut>0)L.push({i:'🚚',t:`Realisasi s/d H${c.cut}: aktual ${nf(c.Ac)} dari plan ${nf(c.Pc)} (<b>${pct(c.Ac,c.Pc)}%</b>), selisih ${nf(c.Ac-c.Pc)}. Toko achieve ${nf(c.ach)}, belum achieve ${nf(c.bel)}.`});
+  const bl=Object.keys(c.br).filter(b=>c.br[b].pc>0).map(b=>({b,p:pct(c.br[b].ac,c.br[b].pc),x:c.br[b]})).sort((a,b)=>b.p-a.p);
+  if(c.cut>0&&bl.length>1){const hi=bl[0],lo=bl[bl.length-1];L.push({i:'🏁',t:`Branch terbaik <b>${esc(hi.b)}</b> (${hi.p}%), terendah <b>${esc(lo.b)}</b> (${lo.p}%) dengan ${nf(lo.x.bel)} toko belum achieve.`});}
+  let mg=0,md=0;for(let i=1;i<=c.cut;i++){const g=c.pd[i]-c.ad[i];if(g>mg){mg=g;md=i}}
+  if(md)L.push({i:'📉',t:`Gap harian terbesar pada tanggal ${md}: plan ${nf(c.pd[md])}, aktual ${nf(c.ad[md])} (kurang ${nf(mg)}).`});
+  const A=alActive(),n=t=>A.filter(a=>a.type===t).length;
+  if(A.length)L.push({i:'🚨',t:`Alarm aktif: GO hari ini/segera <b>${n('GO_HARI_INI')+n('GO_SEGERA')}</b>, GO belum ada SL <b>${n('GO_BELUM_SL')}</b>, tutup hari ini/segera <b>${n('TUTUP_HARI_INI')+n('TUTUP_SEGERA')}</b>, tutup tapi masih ada SL <b>${n('TUTUP_ADA_SL')}</b>, &gt; 4 hari belum kirim <b>${n('BELUM_KIRIM')}</b>.`,cls:'text-amber-300'});
+  else L.push({i:'✅',t:'Tidak ada alarm toko GO / tutup yang perlu ditindak.'});
+  const nb=d.blackout.filter(b=>b.tgl.slice(0,7)===S.per);
+  if(nb.length)L.push({i:'⛔',t:`${nb.length} libur / SO aktif pada periode ini — memengaruhi <b>${nf(Object.keys(d.awal).length)}</b> toko (lihat menu Libur / SO untuk tombol kembali ke jadwal awal).`});
+  const days=Object.keys(d.sl||{});
+  if(days.length){let pb=0,sh=0,last=0;days.forEach(k=>{pb+=d.sl[k].rpPb;sh+=d.sl[k].rpShip;last=Math.max(last,+k)});const x=d.sl[last];
+    if(pb)L.push({i:'💰',t:`SL nilai (Rp Ship ÷ Rp PB): bulan ini <b>${pct(sh,pb)}%</b>${x&&x.rpPb?`, hari terakhir (tgl ${last}) <b>${pct(x.rpShip,x.rpPb)}%</b>`:''}.`})}
+  return L;
+}
+function cumChart(){
+  const c=S.c,nd=c.nd,W=900,H=230,L=48,R=16,T=14,B=26,cp=[],ca=[];let sp=0,sa=0;
+  for(let i=1;i<=nd;i++){sp+=c.pd[i];cp.push(sp);if(i<=Math.max(c.cut,0)){sa+=c.ad[i];ca.push(sa)}}
+  const mx=Math.max(1,sp,c.T||0,sa),x=i=>L+(i-1)*(W-L-R)/Math.max(1,nd-1),y=v=>T+(H-T-B)*(1-v/mx);
+  const pl=a=>a.map((v,i)=>(i?'L':'M')+x(i+1).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  let g='';for(let k=0;k<=4;k++){const v=mx*k/4;g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#1e293b"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end" fill="#64748b" font-size="10">${nf(Math.round(v))}</text>`}
+  let xl='';for(let i=1;i<=nd;i+=Math.ceil(nd/15))xl+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" fill="#64748b" font-size="10">${i}</text>`;
+  const tl=c.T?`<line x1="${L}" x2="${W-R}" y1="${y(c.T)}" y2="${y(c.T)}" stroke="#f59e0b" stroke-dasharray="6 4"/><text x="${W-R}" y="${y(c.T)-5}" text-anchor="end" fill="#f59e0b" font-size="11" font-weight="700">Target ${nf(c.T)}</text>`:'';
+  return`<div class="scroll"><svg viewBox="0 0 ${W} ${H}" class="w-full min-w-[640px]" role="img" aria-label="Grafik kumulatif">${g}${xl}${tl}<path d="${pl(cp)}" fill="none" stroke="#64748b" stroke-width="2"/>${ca.length?`<path d="${pl(ca)}" fill="none" stroke="#DC2626" stroke-width="2.5"/>`:''}</svg></div>
+   <div class="flex gap-4 text-[11px] text-slate-400 mt-1"><span><b style="color:#64748b">━</b> Plan kumulatif (${nf(sp)})</span><span><b class="text-primary">━</b> Aktual kumulatif (${nf(sa)})</span>${c.T?'<span><b class="text-amber-400">╍</b> Target</span>':''}</div>`;
+}
+function dayBars(){
+  const c=S.c,mx=Math.max(1,...c.pd,...c.ad);
+  return c.pd.map((p,i)=>i?`<div class="flex flex-col items-center gap-1" title="Tgl ${i}: plan ${p}, aktual ${c.ad[i]}"><div class="flex items-end gap-px h-24"><div class="w-2 bg-slate-600" style="height:${p/mx*100}%"></div><div class="w-2 bg-primary" style="height:${c.ad[i]/mx*100}%"></div></div><div class="text-[9px] text-slate-500">${i}</div></div>`:'').join('');
+}
+function slBlock(){
+  const d=S.d,ks=Object.keys(d.sl||{}).map(Number).sort((a,b)=>a-b);if(!ks.length)return'';
+  const rows=ks.slice(-10).reverse().map(k=>{const x=d.sl[k];return`<tr><td>${k}</td><td>${nf(x.toko)}</td><td>${nf(x.pb)}</td><td>${nf(x.ship)}</td><td>${nf(x.rpPb)}</td><td>${nf(x.rpShip)}</td><td class="font-bold">${pct(x.rpShip,x.rpPb)}%</td></tr>`}).join('');
+  return card(`<div class="text-sm font-bold mb-3">SL harian (10 hari terakhir yang ada datanya)</div><div class="scroll"><table class="w-full"><thead><tr><th>Tgl</th><th>Toko kirim</th><th>Qty PB</th><th>Qty Ship</th><th>Rp PB</th><th>Rp Ship</th><th>SL nilai</th></tr></thead><tbody>${rows}</tbody></table></div>`);
 }
 
 // ====== Jadwal Toko ======
+const groupsOf=b=>S.d.groups.filter(g=>!b||g.branch===b).map(g=>g.group).sort();
+const hariOf=g=>{const x=S.d.groups.find(y=>y.group===g);return x?[x.h1,x.h2,x.h3].filter(Boolean).join(' & '):''};
 function filtered(){const f=S.f,q=f.q.toLowerCase();return S.d.toko.filter(t=>(!q||(t.kode+' '+t.nama+' '+t.ins).toLowerCase().includes(q))&&(!f.branch||t.branch===f.branch)&&(!f.group||t.group===f.group)&&(!f.status||t.status===f.status))}
-function sel(id,opts,val,ph){return`<select id="${id}" class="inp !w-auto" onchange="S.f.${id.slice(2)}=this.value;S.f.page=0;render()"><option value="">${ph}</option>${opts.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}</select>`}
+function selF(key,opts,ph){return`<select class="inp !w-auto" onchange="S.f.${key}=this.value;${key==='branch'?"S.f.group='';":''}S.f.page=0;render()"><option value="">${ph}</option>${opts.map(o=>`<option ${o===S.f[key]?'selected':''}>${esc(o)}</option>`).join('')}</select>`}
 function vJadwal(){
-  const d=S.d,c=S.c,f=S.f,list=filtered(),PS=40,pages=Math.max(1,Math.ceil(list.length/PS));if(f.page>=pages)f.page=0;
-  const brs=[...new Set(d.toko.map(t=>t.branch))].sort(),grs=[...new Set(d.toko.map(t=>t.group))].sort();
-  const head=Array.from({length:d.nd},(_,i)=>`<th class="day !px-0">${i+1}</th>`).join('');
+  const d=S.d,c=S.c,f=S.f,list=filtered(),PS=f.ps,pages=Math.max(1,Math.ceil(list.length/PS));if(f.page>=pages)f.page=0;
+  const am=alMap(),head=Array.from({length:d.nd},(_,i)=>`<th class="day !px-0">${i+1}</th>`).join('');
   const rows=list.slice(f.page*PS,f.page*PS+PS).map(t=>{
-    const pl=d.plan[t.kode]||'',ac=d.act[t.kode]||'',x=c.tk[t.kode];let cells='';
-    for(let i=1;i<=d.nd;i++){const p=pl[i]==='1',a=ac[i]==='1';
-      const cl=p&&a?'bg-emerald-600 text-white':p&&i<=c.cut?'bg-red-600 text-white':p?'bg-slate-600 text-white':a?'bg-sky-700 text-white':'';
-      cells+=`<td class="day !p-0 ${cl}">${p?'1':a?'•':''}</td>`}
+    const pl=d.plan[t.kode]||'',ac=d.act[t.kode]||'',x=c.tk[t.kode],aw=d.awal[t.kode];let cells='';
+    for(let i=1;i<=d.nd;i++){const p=pl[i]==='1',a=ac[i]==='1',moved=aw&&aw[i]==='1'&&!p;
+      const cl=p&&a?'bg-emerald-600 text-white':p&&i<=c.cut?'bg-red-600 text-white':p?'bg-slate-600 text-white':a?'bg-sky-700 text-white':moved?'bg-amber-900/60 text-amber-300':'';
+      cells+=`<td class="day !p-0 ${cl}">${p?'1':a?'•':moved?'×':''}</td>`}
     const bd=t.status==='TUTUP'?'bg-red-900/50 text-red-300':t.status==='GO'?'bg-emerald-900/50 text-emerald-300':'bg-slate-800 text-slate-400';
-    return`<tr class="hover:bg-white/5 cursor-pointer" onclick="openToko('${esc(t.kode)}')"><td class="font-mono font-bold">${esc(t.kode)}</td><td class="max-w-[180px] truncate">${esc(t.nama)}</td><td>${esc(t.group)}</td><td>${esc(t.branch)}</td>
+    const al=(am[t.kode]||[]).filter(a=>a.level!=='info').length;
+    return`<tr class="hover:bg-white/5 cursor-pointer" onclick="openToko('${esc(t.kode)}')"><td class="font-mono font-bold">${esc(t.kode)}${al?' <span class="text-amber-400" title="ada alarm">⚠</span>':''}</td><td class="max-w-[180px] truncate">${esc(t.nama)}</td><td>${esc(t.group)}</td><td>${esc(t.branch)}</td>
       <td><span class="px-2 rounded text-[10px] ${bd}">${t.status}</span></td>${cells}<td class="font-mono">${x.p}</td><td class="font-mono">${x.a}</td></tr>`}).join('');
   return`<div class="space-y-4"><div class="flex flex-wrap gap-2 items-center">
     <input class="inp !w-64" placeholder="Cari kode / nama / inisial..." value="${esc(f.q)}" oninput="S.f.q=this.value;S.f.page=0;clearTimeout(window._t);window._t=setTimeout(render,250)">
-    ${sel('f-branch',brs,f.branch,'Semua branch')}${sel('f-group',grs,f.group,'Semua group')}${sel('f-status',['AKTIF','GO','TUTUP'],f.status,'Semua status')}
+    ${selF('branch',d.branches,'Semua branch')}${selF('group',groupsOf(f.branch),'Semua group')}${selF('status',['AKTIF','GO','TUTUP'],'Semua status')}
+    <select class="inp !w-auto" onchange="S.f.ps=+this.value;S.f.page=0;render()">${[40,100,200].map(n=>`<option value="${n}" ${n===f.ps?'selected':''}>${n} baris</option>`).join('')}</select>
     ${can('edit')?'<button class="btn btn-p ml-auto" onclick="formToko()">+ Toko Baru (GO)</button>':''}</div>
-    <div class="text-[11px] text-slate-400"><span class="px-2 bg-emerald-600 rounded">1</span> plan & aktual &nbsp;<span class="px-2 bg-red-600 rounded">1</span> plan, belum ada SL &nbsp;<span class="px-2 bg-slate-600 rounded">1</span> plan (belum jatuh) &nbsp;<span class="px-2 bg-sky-700 rounded">•</span> ada SL tanpa plan — ${nf(list.length)} toko</div>
+    <div class="text-[11px] text-slate-400"><span class="px-2 bg-emerald-600 rounded">1</span> plan &amp; aktual &nbsp;<span class="px-2 bg-red-600 rounded">1</span> plan, belum ada SL &nbsp;<span class="px-2 bg-slate-600 rounded">1</span> plan (belum jatuh) &nbsp;<span class="px-2 bg-sky-700 rounded">•</span> ada SL tanpa plan &nbsp;<span class="px-2 bg-amber-900/60 text-amber-300 rounded">×</span> dikosongkan / digeser (Libur/SO) — ${nf(list.length)} toko</div>
     <div class="overflow-auto bg-card border border-slate-800 rounded-2xl max-h-[68vh]"><table class="w-full"><thead><tr><th>Kode</th><th>Nama</th><th>Group</th><th>Branch</th><th>Status</th>${head}<th>Plan</th><th>Akt</th></tr></thead><tbody>${rows||'<tr><td colspan="40" class="text-center text-slate-500 py-8">Tidak ada data</td></tr>'}</tbody></table></div>
     <div class="flex items-center gap-3 text-xs"><button class="btn" ${f.page?'':'disabled'} onclick="S.f.page--;render()">‹ Sebelumnya</button>Halaman ${f.page+1} / ${pages}<button class="btn" ${f.page<pages-1?'':'disabled'} onclick="S.f.page++;render()">Berikutnya ›</button></div></div>`;
 }
 
 // ====== Detail toko & aksi ======
 async function openToko(kode){
-  const t=S.d.toko.find(x=>x.kode===kode);if(!t)return;const x=S.c.tk[kode],e=can('edit');
+  const t=S.d.toko.find(x=>x.kode===kode);if(!t)return;const x=S.c.tk[kode]||{p:0,a:0},e=can('edit'),als=(alMap()[kode]||[]);
   const gOpts=S.d.groups.map(g=>`<option>${esc(g.group)}</option>`).join('');
   openModal(`<div class="flex justify-between items-start mb-4"><div><div class="text-xl font-bold font-mono">${esc(t.kode)}</div><div class="text-sm text-slate-400">${esc(t.nama)} ${t.ins?'('+esc(t.ins)+')':''}</div></div><button class="btn" onclick="closeModal()">✕</button></div>
-   <div class="grid grid-cols-2 gap-2 text-xs mb-4"><div>Branch: <b>${esc(t.branch)}</b></div><div>Group: <b>${esc(t.group)}</b></div><div>Status: <b>${t.status}</b></div><div>Plan / Aktual: <b>${x.p} / ${x.a}</b></div>
-    <div>Tutup mulai: <b>${t.tutup||'-'}</b></div><div>GO mulai: <b>${t.go||'-'}</b></div>${t.groupLama?`<div class="col-span-2">Pindah dari <b>${esc(t.groupLama)}</b> berlaku <b>${t.berlaku}</b></div>`:''}${t.kodeLama?`<div class="col-span-2">Kode lama: <b>${esc(t.kodeLama)}</b></div>`:''}${t.ket?`<div class="col-span-2 text-slate-400">${esc(t.ket)}</div>`:''}</div>
+   ${als.length?`<div class="flex flex-wrap gap-2 mb-3">${als.map(a=>`<span class="chip ${LVC[a.level]} !whitespace-normal">${esc(a.msg)}</span>`).join('')}</div>`:''}
+   <div class="grid grid-cols-2 gap-2 text-xs mb-4"><div>Branch: <b>${esc(t.branch)}</b></div><div>Group: <b>${esc(t.group)}</b> <span class="text-slate-500">${esc(hariOf(t.group))}</span></div><div>Status: <b>${t.status}</b></div><div>Plan / Aktual: <b>${x.p} / ${x.a}</b></div>
+    <div>Tutup mulai: <b>${t.tutup?fmtD(t.tutup):'-'}</b></div><div>GO mulai: <b>${t.go?fmtD(t.go):'-'}</b></div><div>Rit: <b>${esc(t.rit)}</b></div>${t.groupLama?`<div class="col-span-2">Pindah dari <b>${esc(t.groupLama)}</b> berlaku <b>${fmtD(t.berlaku)}</b></div>`:''}${t.kodeLama?`<div class="col-span-2">Kode lama: <b>${esc(t.kodeLama)}</b></div>`:''}${t.ket?`<div class="col-span-2 text-slate-400">${esc(t.ket)}</div>`:''}</div>
    ${e?`<div class="space-y-3 border-t border-slate-800 pt-4">
     <div class="grid grid-cols-3 gap-2"><div><label class="lbl">Status baru</label><select id="ms" class="inp"><option>TUTUP</option><option>GO</option><option>AKTIF</option></select></div><div><label class="lbl">Tanggal</label><input id="mt" type="date" class="inp"></div><div class="flex items-end"><button class="btn btn-p w-full" onclick="aStatus('${esc(kode)}')">Simpan Status</button></div></div>
     <div class="grid grid-cols-3 gap-2"><div><label class="lbl">Pindah ke group</label><select id="mg" class="inp">${gOpts}</select></div><div><label class="lbl">Berlaku tgl</label><input id="mb" type="date" class="inp"></div><div class="flex items-end"><button class="btn btn-p w-full" onclick="aPindah('${esc(kode)}')">Pindah Group</button></div></div>
-    <div class="grid grid-cols-3 gap-2"><div><label class="lbl">Kode baru</label><input id="mk" class="inp uppercase"></div><div><label class="lbl">Berlaku tgl</label><input id="mk2" type="date" class="inp"></div><div class="flex items-end"><button class="btn btn-p w-full" onclick="aGanti('${esc(kode)}')">Ganti Kode</button></div></div></div>`:''}
+    <div class="grid grid-cols-3 gap-2"><div><label class="lbl">Kode baru</label><input id="mk" class="inp uppercase"></div><div><label class="lbl">Berlaku tgl</label><input id="mk2" type="date" class="inp"></div><div class="flex items-end"><button class="btn btn-p w-full" onclick="aGanti('${esc(kode)}')">Ganti Kode</button></div></div>
+    <details class="text-xs"><summary class="cursor-pointer text-slate-400 font-bold">Ubah info toko (nama, inisial, branch, rit, keterangan)</summary><div class="grid grid-cols-2 gap-2 mt-3">
+     <div><label class="lbl">Nama</label><input id="en" class="inp" value="${esc(t.nama)}"></div><div><label class="lbl">Inisial</label><input id="ei" class="inp" value="${esc(t.ins)}"></div>
+     <div><label class="lbl">Branch</label><select id="eb" class="inp">${optList(S.d.branches,t.branch)}</select></div><div><label class="lbl">Rit</label><select id="er" class="inp">${['1','2','3'].map(r=>`<option ${r===t.rit?'selected':''}>${r}</option>`).join('')}</select></div>
+     <div class="col-span-2"><label class="lbl">Keterangan</label><input id="ek" class="inp" value="${esc(t.ket)}"></div><div class="col-span-2 text-right"><button class="btn btn-p" onclick="aInfo('${esc(kode)}')">Simpan Info</button></div></div></details></div>`:''}
    <div class="border-t border-slate-800 mt-4 pt-3"><div class="lbl">Riwayat toko ini</div><div id="mh" class="text-xs text-slate-400 max-h-40 overflow-auto">Memuat...</div></div>`);
-  try{const h=await api('history',{kode,limit:50});$('#mh')&&($('#mh').innerHTML=h.length?h.map(r=>`<div class="py-1 border-b border-slate-800"><b>${r.waktu}</b> · ${esc(r.user)} · ${r.aksi}<br><span class="text-slate-500">${esc(String(r.detail).slice(0,160))}</span></div>`).join(''):'Belum ada riwayat')}catch(e){}
+  try{const h=await api('history',{kode,limit:50});$('#mh')&&($('#mh').innerHTML=h.length?h.map(r=>`<div class="py-1 border-b border-slate-800"><b>${esc(r.waktu)}</b> · ${esc(r.user)} · ${esc(r.aksi)}<br><span class="text-slate-500">${esc(String(r.detail).slice(0,160))}</span></div>`).join(''):'Belum ada riwayat')}catch(er){}
 }
-const after=m=>async()=>{closeModal();await load()};
-function aStatus(k){const st=$('#ms').value,tgl=$('#mt').value;run(async()=>{await api('setStatus',{kode:k,status:st,tgl});await after()()},'Menyimpan...','Status diperbarui')}
-function aPindah(k){run(async()=>{await api('pindahGroup',{kode:k,groupBaru:$('#mg').value,berlaku:$('#mb').value});await after()()},'Menyimpan...','Group dipindah')}
-function aGanti(k){run(async()=>{await api('gantiKode',{kodeLama:k,kodeBaru:$('#mk').value,tgl:$('#mk2').value});await after()()},'Menyimpan...','Kode diganti')}
-function formToko(){
-  const brs=[...new Set(S.d.groups.map(g=>g.branch).concat(S.d.toko.map(t=>t.branch)))].filter(Boolean).sort();
-  openModal(`<h3 class="font-bold mb-4">Toko Baru (GO)</h3><div class="grid grid-cols-2 gap-3">
-   <div><label class="lbl">Kode toko *</label><input id="tk" class="inp uppercase"></div><div><label class="lbl">Inisial</label><input id="ti" class="inp"></div>
-   <div class="col-span-2"><label class="lbl">Nama toko</label><input id="tn" class="inp"></div>
-   <div><label class="lbl">Branch *</label><select id="tb" class="inp">${brs.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
-   <div><label class="lbl">Group *</label><select id="tg" class="inp">${S.d.groups.map(g=>`<option>${esc(g.group)}</option>`).join('')}</select></div>
-   <div><label class="lbl">Tanggal GO *</label><input id="td" type="date" class="inp"></div><div><label class="lbl">Keterangan</label><input id="tq" class="inp"></div></div>
-   <div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" onclick="saveToko()">Simpan</button></div>`);
-}
-function saveToko(){run(async()=>{await api('tokoSave',{kode:$('#tk').value,ins:$('#ti').value,nama:$('#tn').value,branch:$('#tb').value,group:$('#tg').value,tgl:$('#td').value,ket:$('#tq').value});await after()()},'Menyimpan...','Toko ditambahkan')}
+function aStatus(k){const st=$('#ms').value,tgl=$('#mt').value;if(st!=='AKTIF'&&!tgl){toast('Isi tanggal dulu',true);return}run(async()=>{await api('setStatus',{kode:k,status:st,tgl});await refresh()},'Menyimpan...','Status diperbarui')}
+function aPindah(k){if(!$('#mb').value){toast('Isi tanggal berlaku dulu',true);return}run(async()=>{await api('pindahGroup',{kode:k,groupBaru:$('#mg').value,berlaku:$('#mb').value});await refresh()},'Menyimpan...','Group dipindah')}
+function aGanti(k){if(!$('#mk').value||!$('#mk2').value){toast('Isi kode baru dan tanggal',true);return}run(async()=>{await api('gantiKode',{kodeLama:k,kodeBaru:$('#mk').value,tgl:$('#mk2').value});await refresh()},'Menyimpan...','Kode diganti')}
+function aInfo(k){run(async()=>{await api('tokoSave',{kode:k,nama:$('#en').value,ins:$('#ei').value,branch:$('#eb').value,rit:$('#er').value,ket:$('#ek').value});await refresh()},'Menyimpan...','Info toko disimpan')}
 
-// ====== Tutup / GO ======
-function vStatus(){
-  const l=S.d.toko.filter(t=>t.status!=='AKTIF'||t.tutup||t.go).sort((a,b)=>(b.tutup||b.go).localeCompare(a.tutup||a.go));
-  return card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Toko Tutup & GO (${l.length})</div>${can('edit')?'<button class="btn btn-p" onclick="formToko()">+ Toko Baru (GO)</button>':''}</div>
-   <div class="overflow-auto max-h-[70vh]"><table class="w-full"><thead><tr><th>Kode</th><th>Nama</th><th>Branch</th><th>Group</th><th>Status</th><th>Tutup mulai</th><th>GO mulai</th><th>Keterangan</th></tr></thead><tbody>${l.map(t=>`<tr class="hover:bg-white/5 cursor-pointer" onclick="openToko('${esc(t.kode)}')"><td class="font-mono font-bold">${esc(t.kode)}</td><td>${esc(t.nama)}</td><td>${esc(t.branch)}</td><td>${esc(t.group)}</td><td>${t.status}</td><td>${t.tutup||''}</td><td>${t.go||''}</td><td class="text-slate-400">${esc(t.ket)}</td></tr>`).join('')}</tbody></table></div>`);
+// ====== Toko baru (GO) — otomatis tampil di Jadwal, Tutup/GO, Group, Dashboard, Alarm & Download ======
+function formToko(){
+  const brs=S.d.branches,b0=brs[0]||'';
+  openModal(`<h3 class="font-bold mb-1">Toko Baru (GO)</h3><p class="text-[11px] text-slate-400 mb-4">Setelah disimpan, toko otomatis masuk ke jadwal group-nya mulai tanggal GO, muncul di menu Tutup/GO (dengan alarm H-3), hitungan Group, Dashboard, dan file Download.</p><div class="grid grid-cols-2 gap-3">
+   <div><label class="lbl">Kode toko *</label><input id="tk" class="inp uppercase" maxlength="12"></div><div><label class="lbl">Inisial</label><input id="ti" class="inp"></div>
+   <div class="col-span-2"><label class="lbl">Nama toko</label><input id="tn" class="inp"></div>
+   <div><label class="lbl">Branch *</label><select id="tb" class="inp" onchange="fillGroup()">${optList(brs,b0)}</select></div>
+   <div><label class="lbl">Group *</label><select id="tg" class="inp" onchange="hintGroup()"></select></div>
+   <div class="col-span-2 text-xs text-slate-400" id="tgh"></div>
+   <div><label class="lbl">Tanggal GO *</label><input id="td" type="date" class="inp"></div><div><label class="lbl">Rit</label><select id="tr" class="inp"><option>1</option><option>2</option></select></div>
+   <div class="col-span-2"><label class="lbl">Keterangan</label><input id="tq" class="inp"></div></div>
+   <div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" onclick="saveToko()">Simpan</button></div>`);
+  fillGroup();
 }
+function fillGroup(){const b=$('#tb').value,gs=groupsOf(b),all=groupsOf('');const use=gs.length?gs:all;$('#tg').innerHTML=use.map(g=>`<option>${esc(g)}</option>`).join('');$('#tgh').dataset.fb=gs.length?'':'1';hintGroup()}
+function hintGroup(){const g=$('#tg').value,n=S.d.toko.filter(t=>t.group===g).length;$('#tgh').innerHTML=g?`Group <b>${esc(g)}</b>: hari kirim <b>${esc(hariOf(g)||'belum diatur')}</b> · ${n} toko${$('#tgh').dataset.fb?' <span class="text-amber-400">(branch ini belum punya group — menampilkan semua group)</span>':''}`:'<span class="text-red-400">Belum ada group untuk branch ini — buat dulu di menu Group</span>'}
+function saveToko(){
+  const kode=$('#tk').value.trim().toUpperCase(),tgl=$('#td').value,g=$('#tg').value;
+  if(!/^[A-Z0-9._-]{2,12}$/.test(kode)){toast('Kode toko wajib (huruf/angka, 2-12 karakter)',true);return}
+  const dup=S.d.toko.find(t=>t.kode===kode);if(dup){toast('Kode '+kode+' sudah terdaftar di group '+dup.group,true);return}
+  if(!g){toast('Pilih group',true);return}if(!tgl){toast('Tanggal GO wajib diisi',true);return}
+  run(async()=>{const r=await api('tokoSave',{baru:true,kode,ins:$('#ti').value,nama:$('#tn').value,branch:$('#tb').value,group:g,tgl,rit:$('#tr').value,ket:$('#tq').value});
+    closeModal();await load();const x=S.c.tk[kode]||{p:0};
+    openModal(`<h3 class="font-bold mb-3">✅ Toko ${esc(kode)} ditambahkan</h3><div class="text-sm space-y-1"><div>Group <b>${esc(r.group)}</b> (${esc((r.hari||[]).join(' & ')||'-')}) · Branch <b>${esc(r.branch)}</b></div><div>GO mulai <b>${fmtD(r.go)}</b> — plan bulan ${S.per}: <b>${x.p}</b> kiriman</div></div>
+     <div class="text-xs text-slate-400 mt-3">Sudah otomatis masuk ke: Jadwal Toko · Tutup/GO (alarm H-3) · Group · Dashboard · Download.</div><div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Tutup</button><button class="btn btn-p" onclick="closeModal();go('status')">Lihat di Tutup / GO</button></div>`);
+  },'Menyimpan...')
+}
+
+// ====== Tutup / GO dengan alarm ======
+function vStatus(){
+  const d=S.d,am=alMap(),rank={crit:0,warn:1,info:2},sev=t=>Math.min(3,...(am[t.kode]||[]).map(a=>rank[a.level]),3);
+  let l=d.toko.filter(t=>t.status!=='AKTIF'||t.tutup||t.go||(am[t.kode]||[]).some(a=>a.type!=='BELUM_KIRIM'));
+  const A=alStatus(),nGo=l.filter(t=>t.go).length,nTutup=l.filter(t=>t.tutup).length;
+  const tf=S.tf;
+  if(tf==='go')l=l.filter(t=>t.go);else if(tf==='tutup')l=l.filter(t=>t.tutup);else if(tf==='alarm')l=l.filter(t=>(am[t.kode]||[]).some(a=>a.level!=='info'));
+  l.sort((a,b)=>sev(a)-sev(b)||(b.tutup||b.go).localeCompare(a.tutup||a.go));
+  const by=t=>A.filter(a=>a.type===t).length,sm=(t,txt,cls)=>`<div class="chip ${cls}">${txt}: <b>${by(t)}</b></div>`;
+  const tab=(k,t,n)=>`<span class="tab ${tf===k?'on':''}" onclick="S.tf='${k}';render()">${t} (${n})</span>`;
+  const rows=l.map(t=>{const as=(am[t.kode]||[]),w=as.some(a=>a.level==='crit')?'rowc':as.some(a=>a.level==='warn')?'roww':'';
+    const stc=t.status==='TUTUP'?'c-crit':t.status==='GO'?'c-ok':'c-info';
+    return`<tr class="hover:bg-white/5 cursor-pointer ${w}" onclick="openToko('${esc(t.kode)}')"><td class="font-mono font-bold">${esc(t.kode)}</td><td>${esc(t.nama)}</td><td>${esc(t.branch)}</td><td>${esc(t.group)}</td><td><span class="chip ${stc}">${t.status}</span></td>
+     <td>${t.tutup?fmtD(t.tutup)+' <span class="text-slate-500">'+cd(t.tutup)+'</span>':''}</td><td>${t.go?fmtD(t.go)+' <span class="text-slate-500">'+cd(t.go)+'</span>':''}</td>
+     <td><div class="flex flex-wrap gap-1">${as.filter(a=>a.type!=='BELUM_KIRIM').map(alChip).join('')||'<span class="text-slate-600">—</span>'}</div></td><td class="text-slate-400 max-w-[220px] truncate" title="${esc(t.ket)}">${esc(t.ket)}</td></tr>`}).join('');
+  return`<div class="space-y-4">${(d.alarm.global||[]).map(g=>`<div class="chip ${LVC[g.level]} !whitespace-normal">⏱ ${esc(g.msg)}</div>`).join('')}
+   ${card(`<div class="text-sm font-bold mb-3">🚨 Pusat alarm <span class="text-slate-500 font-normal">— dihitung untuk hari ini (${fmtD(d.today)}); email otomatis tiap pagi ke ${esc(d.setting.ALARM_EMAIL)}</span></div>
+    <div class="flex flex-wrap gap-2">${sm('GO_HARI_INI','GO hari ini','c-crit')}${sm('GO_SEGERA','GO ≤ 3 hari','c-warn')}${sm('GO_BELUM_SL','GO belum ada SL','c-crit')}${sm('TUTUP_HARI_INI','Tutup hari ini','c-crit')}${sm('TUTUP_SEGERA','Tutup ≤ 3 hari','c-warn')}${sm('TUTUP_ADA_SL','Tutup tapi ada SL','c-crit')}${sm('BELUM_KIRIM','&gt; 4 hari belum kirim','c-warn')}</div>
+    ${can('admin')?'<div class="mt-3"><button class="btn btn-s" onclick="sendAlarmNow()">✉️ Kirim email alarm sekarang</button></div>':''}`)}
+   ${card(`<div class="flex justify-between items-center mb-3 flex-wrap gap-2"><div class="tabs">${tab('all','Semua',nGo+nTutup>0?l.length&&tf==='all'?l.length:d.toko.filter(t=>t.status!=='AKTIF'||t.tutup||t.go).length:0)}${tab('go','GO',nGo)}${tab('tutup','Tutup',nTutup)}${tab('alarm','Alarm aktif',A.length)}</div>${can('edit')?'<button class="btn btn-p" onclick="formToko()">+ Toko Baru (GO)</button>':''}</div>
+    <div class="overflow-auto max-h-[62vh]"><table class="w-full"><thead><tr><th>Kode</th><th>Nama</th><th>Branch</th><th>Group</th><th>Status</th><th>Tutup mulai</th><th>GO mulai</th><th>Alarm</th><th>Keterangan</th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="text-center text-slate-500 py-8">Tidak ada data</td></tr>'}</tbody></table></div>`)}</div>`;
+}
+function sendAlarmNow(){run(async()=>{const r=await api('alarmEmail');toast(r.sent?'Email alarm terkirim ke '+r.to+' ('+r.n+' toko)':'Tidak ada alarm — email tidak dikirim')},'Mengirim email...')}
 
 // ====== Libur / Stock Opname ======
-function vLibur(){
-  const brs=[...new Set(S.d.toko.map(t=>t.branch))].sort(),grs=S.d.groups.map(g=>g.group);
-  const b=S.d.blackout.slice().sort((a,b)=>b.tgl.localeCompare(a.tgl));
-  return`<div class="grid lg:grid-cols-3 gap-5">${can('edit')?card(`<div class="text-sm font-bold mb-3">Tambah Libur / Stock Opname</div><div class="space-y-3">
-   <div><label class="lbl">Tanggal</label><input id="bt" type="date" class="inp"></div>
-   <div><label class="lbl">Berlaku untuk</label><select id="bs" class="inp" onchange="bsc()"><option value="ALL">Semua toko</option><option value="BRANCH">Satu branch</option><option value="GROUP">Satu group</option></select></div>
-   <div id="bnw" class="hidden"><label class="lbl">Pilih</label><select id="bn" class="inp"></select></div>
-   <div><label class="lbl">Keterangan</label><input id="bk" class="inp" placeholder="Stock Opname Nasional"></div>
-   <button class="btn btn-p w-full" onclick="addBo()">Tambah</button></div>`):''}
-   ${card(`<div class="text-sm font-bold mb-3">Daftar (${b.length}) — plan pada tanggal ini otomatis dikosongkan</div><div class="overflow-auto max-h-[65vh]"><table class="w-full"><thead><tr><th>Tanggal</th><th>Berlaku</th><th>Ket</th><th>Oleh</th><th></th></tr></thead><tbody>${b.map(x=>`<tr><td>${x.tgl}</td><td>${x.scope}${x.nilai?': '+esc(x.nilai):''}</td><td>${esc(x.ket)}</td><td class="text-slate-500">${esc(x.oleh)}</td><td>${can('edit')?`<button class="btn" onclick="delBo('${x.tgl}','${x.scope}','${esc(x.nilai)}')">Hapus</button>`:''}</td></tr>`).join('')}</tbody></table></div>`,'lg:col-span-2')}</div>`;
+const gOfT=(t,ds)=>(t.berlaku&&t.groupLama&&ds<t.berlaku)?t.groupLama:t.group;
+const bm=(b,t,ds)=>b.scope==='ALL'||(b.scope==='BRANCH'&&b.nilai===t.branch)||(b.scope==='GROUP'&&b.nilai===gOfT(t,ds));
+const rangeLbl=b=>b.tgl===b.tglAkhir||!b.tglAkhir?fmtD(b.tgl):fmtD(b.tgl)+' – '+fmtD(b.tglAkhir);
+const aksiLbl=b=>b.mode==='GESER'?'Geser +'+b.geser+' hari':'Kosongkan';
+const scopeLbl=b=>b.scope==='ALL'?'Semua toko':(b.scope==='BRANCH'?'Branch: ':'Group: ')+b.nilai;
+// toko yang terdampak entri b. basis 'raw' = jadwal awal (sebelum libur/SO), 'plan' = jadwal saat ini
+function affected(b,basis){
+  if(!b.tgl||b.tgl.slice(0,7)!==S.per)return null;
+  const d=S.d,i0=+b.tgl.slice(8,10),i1=Math.min(d.nd,+((b.tglAkhir||b.tgl).slice(8,10))),out=[];
+  d.toko.forEach(t=>{const s=basis==='raw'?(d.awal[t.kode]||d.plan[t.kode]||''):(d.plan[t.kode]||''),days=[];
+    for(let i=i0;i<=i1;i++)if(s[i]==='1'&&bm(b,t,dayOf(S.per,i)))days.push(i);
+    if(days.length)out.push({t,days})});
+  return out;
 }
-function bsc(){const s=$('#bs').value;$('#bnw').classList.toggle('hidden',s==='ALL');if(s!=='ALL'){const o=s==='BRANCH'?[...new Set(S.d.toko.map(t=>t.branch))].sort():S.d.groups.map(g=>g.group);$('#bn').innerHTML=o.map(x=>`<option>${esc(x)}</option>`).join('')}}
-function addBo(){const s=$('#bs').value;run(async()=>{await api('blackout',{op:'add',tgl:$('#bt').value,scope:s,nilai:s==='ALL'?'':$('#bn').value,ket:$('#bk').value});await load()},'Menyimpan...','Libur ditambahkan')}
-function delBo(tgl,scope,nilai){if(!confirm('Hapus libur '+tgl+'?'))return;run(async()=>{await api('blackout',{op:'del',tgl,scope,nilai});await load()},'Menghapus...','Dihapus')}
+function vLibur(){
+  const d=S.d,e=can('edit'),brs=d.branches,grs=d.groups.map(g=>g.group);
+  const all=d.blackout.slice().sort((a,b)=>b.tgl.localeCompare(a.tgl));S.boList=all;
+  const inPer=all.filter(b=>b.tgl.slice(0,7)===S.per);
+  let rawSum=0,curSum=0;d.toko.forEach(t=>{const p=d.plan[t.kode]||'',r=d.awal[t.kode]||p;for(let i=1;i<=d.nd;i++){if(r[i]==='1')rawSum++;if(p[i]==='1')curSum++}});
+  const nAff=Object.keys(d.awal).length;
+  const rows=all.map((b,ix)=>{const cur=b.tgl.slice(0,7)===S.per,af=cur?affected(b,'raw'):null;
+    return`<tr class="${cur?'':'opacity-60'}"><td class="whitespace-nowrap">${rangeLbl(b)}${cur?'':' <span class="chip c-info">'+b.tgl.slice(0,7)+'</span>'}</td><td>${esc(scopeLbl(b))}</td><td><span class="chip ${b.mode==='GESER'?'c-blue':'c-warn'}">${aksiLbl(b)}</span></td>
+     <td class="font-bold">${af?nf(af.length):'-'}</td><td class="text-slate-400">${nf(b.jml)}</td><td class="text-slate-400 max-w-[160px] truncate" title="${esc(b.ket)}">${esc(b.ket)}</td><td class="text-slate-500 text-[11px]">${esc(b.oleh)}<br>${esc(b.waktu.slice(0,16))}</td>
+     <td class="whitespace-nowrap">${cur?`<button class="btn btn-s" onclick="lihatBo(${ix})">Lihat toko</button> `:''}${e?`<button class="btn btn-s" onclick="delBo(${ix})">↩ Kembalikan</button>`:''}</td></tr>`}).join('');
+  const form=e?card(`<div class="text-sm font-bold mb-3">Tambah Libur / Stock Opname</div><div class="space-y-3">
+   <div class="grid grid-cols-2 gap-2"><div><label class="lbl">Tanggal mulai</label><input id="bt" type="date" class="inp" oninput="boPrev()"></div><div><label class="lbl">Sampai (opsional)</label><input id="bt2" type="date" class="inp" oninput="boPrev()"></div></div>
+   <div><label class="lbl">Berlaku untuk</label><select id="bs" class="inp" onchange="bsc()"><option value="ALL">Semua toko</option><option value="BRANCH">Satu branch</option><option value="GROUP">Satu group</option></select></div>
+   <div id="bnw" class="hidden"><label class="lbl">Pilih</label><select id="bn" class="inp" onchange="boPrev()"></select></div>
+   <div><label class="lbl">Aksi pada toko yang terjadwal</label><select id="bmd" class="inp" onchange="bsc()"><option value="KOSONG">Kosongkan / non-aktifkan jadwal</option><option value="GESER">Geser jadwal ke hari berikutnya</option></select></div>
+   <div id="bgw" class="hidden"><label class="lbl">Geser berapa hari</label><input id="bg" type="number" min="1" max="14" value="1" class="inp" oninput="boPrev()"></div>
+   <div><label class="lbl">Keterangan</label><input id="bk" class="inp" placeholder="Stock Opname Nasional"></div>
+   <div id="bpv" class="text-xs text-slate-400 border border-dashed border-slate-700 rounded-xl p-3">Pilih tanggal untuk melihat toko yang terdampak.</div>
+   <button class="btn btn-p w-full" onclick="addBo()">Simpan Libur / SO</button></div>`):'';
+  return`<div class="space-y-5"><div class="grid grid-cols-2 lg:grid-cols-4 gap-4">${kpi('Libur / SO periode ini',inPer.length,'entri aktif')}${kpi('Toko terdampak',nf(nAff),'jadwal berubah dari jadwal awal',nAff?'text-amber-400':'')}${kpi('Plan dikosongkan / digeser',nf(Math.max(0,rawSum-curSum)),'kiriman hilang dari plan awal '+nf(rawSum))}${kpi('Plan sekarang',nf(curSum),'setelah libur / SO')}</div>
+   <div class="grid lg:grid-cols-3 gap-5">${form}
+   ${card(`<div class="flex justify-between items-center mb-3 flex-wrap gap-2"><div class="text-sm font-bold">Daftar Libur / SO (${all.length}) <span class="text-slate-500 font-normal">— "Kembalikan" = hapus entri &amp; jadwal toko kembali ke awal</span></div>${e&&inPer.length?'<button class="btn btn-s" onclick="resetBo()">↩ Kembalikan SEMUA ke jadwal awal ('+S.per+')</button>':''}</div>
+    <div class="overflow-auto max-h-[46vh]"><table class="w-full"><thead><tr><th>Tanggal</th><th>Berlaku</th><th>Aksi</th><th>Toko terdampak</th><th>Saat dicatat</th><th>Ket</th><th>Oleh</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="text-center text-slate-500 py-6">Belum ada libur / SO</td></tr>'}</tbody></table></div>`,e?'lg:col-span-2':'lg:col-span-3')}</div>
+   ${card(`<div class="text-sm font-bold mb-3">Riwayat Libur / SO <span class="text-slate-500 font-normal">— siapa, kapan, berapa toko dikosongkan / digeser / dikembalikan</span></div><div id="lh" class="overflow-auto max-h-[36vh] text-xs">Memuat...</div>`)}</div>`;
+}
+function bsc(){
+  const s=$('#bs').value;$('#bnw').classList.toggle('hidden',s==='ALL');$('#bgw').classList.toggle('hidden',$('#bmd').value!=='GESER');
+  if(s!=='ALL')$('#bn').innerHTML=(s==='BRANCH'?S.d.branches:S.d.groups.map(g=>g.group)).map(x=>`<option>${esc(x)}</option>`).join('');boPrev();
+}
+function boForm(){const s=$('#bs').value,md=$('#bmd').value;return{tgl:$('#bt').value,tglAkhir:$('#bt2').value||$('#bt').value,scope:s,nilai:s==='ALL'?'':$('#bn').value,mode:md,geser:md==='GESER'?Math.max(1,Math.round(+$('#bg').value||1)):0,ket:$('#bk').value}}
+function boPrev(){
+  const b=boForm(),el=$('#bpv');if(!el)return;
+  if(!b.tgl){el.innerHTML='Pilih tanggal untuk melihat toko yang terdampak.';return}
+  if(b.tglAkhir<b.tgl){el.innerHTML='<span class="text-red-400">Tanggal akhir sebelum tanggal mulai.</span>';return}
+  if(b.tgl.slice(0,7)!==b.tglAkhir.slice(0,7)){el.innerHTML='<span class="text-red-400">Rentang harus dalam satu bulan.</span>';return}
+  if(b.tgl.slice(0,7)!==S.per){el.innerHTML='<span class="text-amber-400">Tanggal di luar periode '+S.per+' — ganti periode di kanan atas untuk melihat daftar toko terdampak. Entri tetap bisa disimpan.</span>';return}
+  const af=affected(b,'plan'),days=af.reduce((s,x)=>s+x.days.length,0);
+  el.innerHTML=`<div class="text-sm"><b class="${af.length?'text-amber-300':'text-slate-300'}">${nf(af.length)} toko</b> akan ${b.mode==='GESER'?'digeser +'+b.geser+' hari':'dikosongkan / dinonaktifkan'} (${nf(days)} kiriman).</div>
+   ${af.length?`<div class="mt-2 max-h-40 overflow-auto">${af.slice(0,60).map(x=>`<div class="flex justify-between border-b border-slate-800 py-0.5"><span><b class="font-mono">${esc(x.t.kode)}</b> ${esc(x.t.nama).slice(0,22)}</span><span class="text-slate-500">${esc(x.t.group)} · tgl ${x.days.join(', ')}${b.mode==='GESER'?' → '+x.days.map(i=>i+b.geser).join(', '):''}</span></div>`).join('')}${af.length>60?`<div class="text-slate-500 pt-1">… dan ${af.length-60} toko lainnya (daftar lengkap tersedia setelah disimpan: tombol "Lihat toko")</div>`:''}</div>`:''}`;
+}
+function addBo(){
+  const b=boForm();if(!b.tgl){toast('Isi tanggal dulu',true);return}
+  if(b.scope!=='ALL'&&!b.nilai){toast('Pilih '+(b.scope==='BRANCH'?'branch':'group'),true);return}
+  if(b.tglAkhir<b.tgl){toast('Tanggal akhir sebelum tanggal mulai',true);return}
+  const af=affected(b,'plan'),n=af?af.length:null;
+  if(!confirm(`${b.mode==='GESER'?'Geser +'+b.geser+' hari':'Kosongkan'} jadwal ${scopeLbl(b)} pada ${rangeLbl(b)}${n!=null?'\n'+nf(n)+' toko akan terdampak.':''}\nLanjut?`))return;
+  run(async()=>{const r=await api('blackout',{tgl:b.tgl,tglAkhir:b.tglAkhir,scope:b.scope,nilai:b.nilai,mode:b.mode,geser:b.geser,ket:b.ket});await load();toast(nf(r.jml)+' toko '+(b.mode==='GESER'?'digeser':'dikosongkan')+' — bisa dikembalikan lewat tombol Kembalikan')},'Menyimpan...')
+}
+function lihatBo(ix){
+  const b=S.boList[ix],af=affected(b,'raw')||[];
+  openModal(`<div class="flex justify-between mb-3"><div><h3 class="font-bold">${aksiLbl(b)} — ${esc(scopeLbl(b))}</h3><div class="text-xs text-slate-400">${rangeLbl(b)} · ${nf(af.length)} toko terdampak</div></div><button class="btn" onclick="closeModal()">✕</button></div>
+   <div class="overflow-auto max-h-[60vh]"><table class="w-full"><thead><tr><th>Kode</th><th>Nama</th><th>Group</th><th>Branch</th><th>Tanggal awal</th>${b.mode==='GESER'?'<th>Menjadi</th>':''}</tr></thead><tbody>${af.map(x=>`<tr><td class="font-mono font-bold">${esc(x.t.kode)}</td><td>${esc(x.t.nama)}</td><td>${esc(x.t.group)}</td><td>${esc(x.t.branch)}</td><td>${x.days.join(', ')}</td>${b.mode==='GESER'?`<td>${x.days.map(i=>i+b.geser).filter(i=>i<=S.d.nd).join(', ')||'<span class="text-red-400">lewat akhir bulan</span>'}</td>`:''}</tr>`).join('')}</tbody></table></div>
+   <div class="flex justify-end mt-4"><button class="btn" onclick="closeModal()">Tutup</button></div>`,true);
+}
+function delBo(ix){
+  const b=S.boList[ix],af=affected(b,'raw'),n=af?af.length:b.jml;
+  if(!confirm(`Kembalikan ke jadwal awal?\n${aksiLbl(b)} ${scopeLbl(b)} (${rangeLbl(b)}) dihapus dan ±${nf(n)} toko kembali ke jadwal semula.`))return;
+  run(async()=>{const r=await api('blackout',{op:'del',tgl:b.tgl,scope:b.scope,nilai:b.nilai});await load();toast(nf(r.kembali)+' toko kembali ke jadwal awal')},'Mengembalikan...')
+}
+function resetBo(){
+  const n=S.d.blackout.filter(b=>b.tgl.slice(0,7)===S.per).length;
+  if(!confirm(`Kembalikan SEMUA jadwal periode ${S.per} ke jadwal awal?\n${n} entri libur/SO akan dihapus dan ${nf(Object.keys(S.d.awal).length)} toko kembali ke jadwal semula.`))return;
+  run(async()=>{const r=await api('blackout',{op:'reset',periode:S.per});await load();toast(nf(r.kembali)+' toko dikembalikan ke jadwal awal ('+r.entri+' entri dihapus)')},'Mengembalikan...')
+}
+async function loadLiburHist(){
+  try{const h=await api('history',{aksi:'LIBUR',limit:100});const el=$('#lh');if(!el)return;
+    const L={LIBUR_TAMBAH:'Ditambah',LIBUR_HAPUS:'Dikembalikan',LIBUR_RESET:'Reset ke jadwal awal'};
+    el.innerHTML=h.length?`<table class="w-full"><thead><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Rincian</th><th>Toko</th></tr></thead><tbody>${h.map(r=>{let x={};try{x=JSON.parse(r.detail)}catch(e){}
+      const rin=r.aksi==='LIBUR_RESET'?`periode ${esc(x.periode)} · ${x.entri} entri`:`${x.tglAkhir&&x.tglAkhir!==x.tgl?fmtD(x.tgl)+' – '+fmtD(x.tglAkhir):fmtD(x.tgl)} · ${x.scope==='ALL'?'Semua toko':esc((x.scope==='BRANCH'?'Branch ':'Group ')+x.nilai)} · ${x.mode==='GESER'?'geser +'+x.geser+' hari':'kosongkan'}${x.ket?' · '+esc(x.ket):''}`;
+      const n=r.aksi==='LIBUR_TAMBAH'?x.jmlToko:x.jmlKembali;
+      return`<tr><td class="whitespace-nowrap">${esc(r.waktu)}</td><td>${esc(r.user)}</td><td class="font-bold ${r.aksi==='LIBUR_TAMBAH'?'text-amber-300':'text-emerald-300'}">${L[r.aksi]||esc(r.aksi)}</td><td class="text-slate-400">${rin}</td><td class="font-bold">${n==null?'-':nf(n)+' toko'}</td></tr>`}).join('')}</tbody></table>`:'Belum ada riwayat libur / SO'}catch(e){const el=$('#lh');if(el)el.textContent=e.message}
+}
 
 // ====== Group ======
+function groupStats(){
+  const d=S.d,gs={};d.groups.forEach(g=>gs[g.group]={n:0,jd:0,p:0,pc:0,ac:0,a:0,tutup:0});let orphan=0;
+  d.toko.forEach(t=>{const x=S.c.tk[t.kode]||{p:0,a:0,pc:0,ac:0},g=gs[t.group];if(!g){orphan++;return}
+    g.n++;if(x.p>0)g.jd++;g.p+=x.p;g.a+=x.a;g.pc+=x.pc;g.ac+=x.ac;if(t.status==='TUTUP')g.tutup++});
+  return{gs,orphan};
+}
+const geserDay=h=>h?HARI[(HARI.indexOf(h)+1)%7]:'';
 function vGroup(){
-  const n={};S.d.toko.forEach(t=>n[t.group]=(n[t.group]||0)+1);
-  return card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Group Mobil (${S.d.groups.length}) <span class="text-slate-500 font-normal">— hari kirim dipakai jika toko tidak punya plan dasar / setelah pindah group</span></div>${can('edit')?'<button class="btn btn-p" onclick="formGroup()">+ Group</button>':''}</div>
-   <div class="overflow-auto max-h-[72vh]"><table class="w-full"><thead><tr><th>Group</th><th>Branch</th><th>Hari 1</th><th>Hari 2</th><th>Hari 3</th><th>Toko</th><th></th></tr></thead><tbody>${S.d.groups.map(g=>`<tr><td class="font-bold font-mono">${esc(g.group)}</td><td>${esc(g.branch)}</td><td>${g.h1}</td><td>${g.h2}</td><td>${g.h3}</td><td>${n[g.group]||0}</td><td>${can('edit')?`<button class="btn" onclick='formGroup(${JSON.stringify(g)})'>Edit</button>`:''}</td></tr>`).join('')}</tbody></table></div>`);
+  const d=S.d,f=S.gf,e=can('edit'),{gs,orphan}=groupStats(),q=f.q.toLowerCase();
+  const list=d.groups.filter(g=>(!f.branch||g.branch===f.branch)&&(!q||g.group.toLowerCase().includes(q))).sort((a,b)=>a.group.localeCompare(b.group));
+  const noDay=d.groups.filter(g=>!g.h1).length,empty=d.groups.filter(g=>!gs[g.group].n).length;
+  const bsum=d.branches.map(b=>{const l=d.groups.filter(g=>g.branch===b),n=l.reduce((s,g)=>s+gs[g.group].n,0);return l.length||n?`<div class="chip c-info cursor-pointer ${f.branch===b?'!border-primary':''}" onclick="S.gf.branch=S.gf.branch==='${esc(b)}'?'':'${esc(b)}';render()">${esc(b)}: <b>${l.length}</b> group · <b>${nf(n)}</b> toko</div>`:''}).join(' ');
+  const rows=list.map(g=>{const x=gs[g.group],pc=pct(x.ac,x.pc),flag=!g.h1?'<span class="chip c-crit">tanpa hari kirim</span>':!x.n?'<span class="chip c-warn">tanpa toko</span>':'';
+    return`<tr><td class="font-bold font-mono">${esc(g.group)}</td><td>${esc(g.branch)}</td><td>${esc(g.h1)}</td><td>${esc(g.h2)}</td><td>${esc(g.h3)}</td><td class="text-slate-500">${[g.h1,g.h2,g.h3].filter(Boolean).map(geserDay).join(' & ')}</td>
+     <td>${nf(x.n)}${x.tutup?' <span class="text-red-400 text-[10px]">('+x.tutup+' tutup)</span>':''}</td><td>${nf(x.p)}</td><td>${nf(x.ac)} / ${nf(x.pc)}</td><td><div class="flex items-center gap-2"><div class="bar w-14"><i class="${pc>=95?'bg-emerald-500':pc>=80?'bg-amber-500':'bg-red-500'}" style="width:${Math.min(100,pc)}%"></i></div>${x.pc?pc+'%':'-'}</div></td><td>${flag}</td>
+     <td class="whitespace-nowrap"><button class="btn btn-s" onclick="lihatGroup('${esc(g.group)}')">Toko</button> ${e?`<button class="btn btn-s" onclick='formGroup(${JSON.stringify(g).replace(/'/g,"&#39;")})'>Edit</button> <button class="btn btn-s" onclick="delGroup('${esc(g.group)}')">Hapus</button>`:''}</td></tr>`}).join('');
+  return`<div class="space-y-4"><div class="grid grid-cols-2 lg:grid-cols-4 gap-4">${kpi('Total group',d.groups.length,d.branches.length+' branch')}${kpi('Group tanpa hari kirim',noDay,'perlu dilengkapi',noDay?'text-red-400':'text-emerald-400')}${kpi('Group tanpa toko',empty,'bisa dihapus bila tidak dipakai')}${kpi('Toko tanpa group master',orphan,'harus dipindah ke group valid',orphan?'text-red-400':'text-emerald-400')}</div>
+   <div class="flex flex-wrap gap-2">${bsum}</div>
+   ${card(`<div class="flex justify-between flex-wrap gap-2 mb-3"><div class="flex gap-2 items-center"><div class="text-sm font-bold">Group Mobil (${list.length}/${d.groups.length})</div><input class="inp !w-44" placeholder="Cari group..." value="${esc(f.q)}" oninput="S.gf.q=this.value;clearTimeout(window._t);window._t=setTimeout(render,250)">
+    <select class="inp !w-auto" onchange="S.gf.branch=this.value;render()">${optList(d.branches,f.branch,'Semua branch')}</select></div>${e?'<button class="btn btn-p" onclick="formGroup()">+ Group</button>':''}</div>
+    <div class="overflow-auto max-h-[62vh]"><table class="w-full"><thead><tr><th>Group</th><th>Branch</th><th>Hari 1</th><th>Hari 2</th><th>Hari 3</th><th>Jadwal geser (+1)</th><th>Toko</th><th>Plan bulan</th><th>Aktual / plan s/d H${S.c.cut}</th><th>% Aktual</th><th>Catatan</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="12" class="text-center text-slate-500 py-8">Tidak ada group</td></tr>'}</tbody></table></div>
+    <p class="text-[11px] text-slate-500 mt-3">Hari kirim dipakai bila toko tidak punya plan dasar dari file / setelah pindah group. Group hanya bisa dihapus bila tidak ada toko yang memakainya.</p>`)}</div>`;
+}
+function lihatGroup(g){
+  const l=S.d.toko.filter(t=>t.group===g).sort((a,b)=>a.kode.localeCompare(b.kode));
+  openModal(`<div class="flex justify-between mb-3"><div><h3 class="font-bold font-mono">${esc(g)}</h3><div class="text-xs text-slate-400">${l.length} toko · hari kirim ${esc(hariOf(g)||'-')}</div></div><button class="btn" onclick="closeModal()">✕</button></div>
+   <div class="overflow-auto max-h-[60vh]"><table class="w-full"><thead><tr><th>Kode</th><th>Nama</th><th>Branch</th><th>Status</th><th>Plan</th><th>Akt</th></tr></thead><tbody>${l.map(t=>{const x=S.c.tk[t.kode]||{p:0,a:0};return`<tr class="hover:bg-white/5 cursor-pointer" onclick="openToko('${esc(t.kode)}')"><td class="font-mono font-bold">${esc(t.kode)}</td><td>${esc(t.nama)}</td><td>${esc(t.branch)}</td><td>${t.status}</td><td>${x.p}</td><td>${x.a}</td></tr>`}).join('')||'<tr><td colspan="6" class="text-center text-slate-500 py-6">Belum ada toko</td></tr>'}</tbody></table></div>`,true);
 }
 function formGroup(g){g=g||{group:'',branch:'',h1:'',h2:'',h3:''};
   const hs=n=>`<select id="g${n}" class="inp"><option value=""></option>${HARI.map(h=>`<option ${g['h'+n]===h?'selected':''}>${h}</option>`).join('')}</select>`;
-  openModal(`<h3 class="font-bold mb-4">Group</h3><div class="grid grid-cols-2 gap-3"><div><label class="lbl">Group</label><input id="gg" class="inp uppercase" value="${esc(g.group)}" ${g.group?'readonly':''}></div><div><label class="lbl">Branch</label><input id="gb" class="inp" value="${esc(g.branch)}"></div>
-   <div><label class="lbl">Hari 1</label>${hs(1)}</div><div><label class="lbl">Hari 2</label>${hs(2)}</div><div><label class="lbl">Hari 3</label>${hs(3)}</div></div>
+  openModal(`<h3 class="font-bold mb-4">${g.group?'Edit':'Tambah'} Group</h3><div class="grid grid-cols-2 gap-3"><div><label class="lbl">Group *</label><input id="gg" class="inp uppercase" maxlength="12" value="${esc(g.group)}" ${g.group?'readonly':''} placeholder="mis. PBN25"></div><div><label class="lbl">Branch *</label><select id="gb" class="inp">${optList(S.d.branches,g.branch)}</select></div>
+   <div><label class="lbl">Hari 1 *</label>${hs(1)}</div><div><label class="lbl">Hari 2</label>${hs(2)}</div><div><label class="lbl">Hari 3</label>${hs(3)}</div></div>
    <div class="flex justify-end gap-2 mt-5"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" onclick="saveGroup()">Simpan</button></div>`)}
-function saveGroup(){run(async()=>{await api('groupSave',{group:$('#gg').value,branch:$('#gb').value,h1:$('#g1').value,h2:$('#g2').value,h3:$('#g3').value});await after()()},'Menyimpan...','Group disimpan')}
+function saveGroup(){
+  const h=[$('#g1').value,$('#g2').value,$('#g3').value],f=h.filter(Boolean),g=$('#gg').value.trim().toUpperCase();
+  if(!/^[A-Z0-9._-]{2,12}$/.test(g)){toast('Nama group wajib (huruf/angka, 2-12 karakter)',true);return}
+  if(!h[0]){toast('Hari 1 wajib diisi',true);return}if(new Set(f).size!==f.length){toast('Hari kirim tidak boleh sama',true);return}
+  run(async()=>{await api('groupSave',{group:g,branch:$('#gb').value,h1:h[0],h2:h[1],h3:h[2]});await refresh()},'Menyimpan...','Group disimpan')
+}
+function delGroup(g){
+  const n=S.d.toko.filter(t=>t.group===g||t.groupLama===g).length;
+  if(n){toast('Group '+g+' masih dipakai '+n+' toko — pindahkan tokonya dulu',true);return}
+  if(!confirm('Hapus group '+g+'?'))return;run(async()=>{await api('groupDelete',{group:g});await load()},'Menghapus...','Group dihapus')
+}
+
+// ====== Utilitas baca file (xlsx / csv / xls berisi HTML seperti file SL & REP_JWC) ======
+const MON={JAN:1,FEB:2,MAR:3,APR:4,MAY:5,MEI:5,JUN:6,JUL:7,AUG:8,AGU:8,AGT:8,AGS:8,SEP:9,SEPT:9,OCT:10,OKT:10,NOV:11,NOP:11,DEC:12,DES:12};
+const MON_EN=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'],MON3=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function toDS(v){
+  if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+pad(v.getMonth()+1)+'-'+pad(v.getDate());
+  if(typeof v==='number'&&v>20000&&v<80000)return new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10);
+  const s=String(v==null?'':v).trim();if(!s)return'';
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return m[1]+'-'+pad(+m[2])+'-'+pad(+m[3]);
+  m=s.match(/^(\d{1,2})[-\/. ]([A-Za-z]{3,9})[-\/. ,]+(\d{2,4})/);
+  if(m){const mo=MON[m[2].toUpperCase().slice(0,m[2].length>=4&&/^SEPT/i.test(m[2])?4:3)];let y=+m[3];if(y<100)y+=2000;return mo?y+'-'+pad(mo)+'-'+pad(+m[1]):''}
+  m=s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);return m?m[3]+'-'+pad(+m[2])+'-'+pad(+m[1]):'';
+}
+function toNum(v){
+  if(typeof v==='number')return isFinite(v)?v:0;let s=String(v==null?'':v).trim().replace(/\s/g,'');if(!s)return 0;
+  if(/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,'');                       // 8,372,729  /  1,234.5  (format file SL)
+  else if(/^-?\d{1,3}(\.\d{3}){2,}(,\d+)?$/.test(s)||/^-?\d{1,3}(\.\d{3})+,\d+$/.test(s))s=s.replace(/\./g,'').replace(',','.');   // 1.234.567  /  1.234,5 (format Indonesia)
+  else if(/^-?\d+,\d{1,2}$/.test(s))s=s.replace(',','.');                                // 12,5
+  else s=s.replace(/,/g,'');
+  const n=Number(s);return isFinite(n)?n:0;
+}
+async function readTable(f){
+  const buf=await f.arrayBuffer(),txt=new TextDecoder('utf-8').decode(buf.slice(0,2000)).toLowerCase();
+  if(txt.indexOf('<table')>=0||/^\s*(<!doctype|<html|<\?xml)/.test(txt)){                 // .xls yang sebenarnya HTML
+    const doc=new DOMParser().parseFromString(new TextDecoder('utf-8').decode(buf),'text/html'),tbs=[...doc.querySelectorAll('table')];
+    if(!tbs.length)throw new Error('Tabel data tidak ditemukan di file');
+    tbs.sort((a,b)=>b.rows.length-a.rows.length);
+    return{name:f.name,aoa:[...tbs[0].rows].map(r=>[...r.cells].map(c=>c.textContent.replace(/\u00a0/g,' ').trim()))};
+  }
+  const wb=XLSX.read(buf,{type:'array'}),name=wb.SheetNames.find(n=>/SL/i.test(n))||wb.SheetNames[0];
+  return{name:f.name,aoa:XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''})};
+}
+const nh=h=>String(h==null?'':h).toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_|_$/g,'');
+// Format SL_DC_SS08_Per_Toko: TANGGAL_PB, KD_STORE, NAMA_STORE, QTY_PB, RP_PB, QTY_PICK, RP_PICK, QTY_SHIP, RP_SHIP, SL_QTY, TOT_ITEM
+// (format lama SL ALL TAG: TANGGAL SL, KODE, NAMA, QTY PB, QTY SHIP, BRANCH — tetap dikenali)
+const SLCOLS={tgl:/^(TANGGAL(_PB|_SL)?|TGL(_PB|_SL)?)$/,kode:/^(KD_STORE|KODE(_TOKO|_STORE)?)$/,nama:/^(NAMA(_STORE|_TOKO)?)$/,qpb:/^QTY_PB$/,rpb:/^(RP_PB|RP_PB_)$/,qpk:/^QTY_PICK$/,rpk:/^RP_PICK$/,qsh:/^QTY_SHIP$/,rsh:/^RP_SHIP$/,slq:/^SL_QTY$/,item:/^(TOT_ITEM|ITEM_PB)$/,br:/^(BRANCH|BREANC|BRANCH_NAME)$/};
+function parseSL(aoa,known,brOf){
+  let hi=-1,map={};
+  for(let i=0;i<Math.min(aoa.length,25);i++){const m={};aoa[i].forEach((h,j)=>{const k=nh(h);for(const key in SLCOLS)if(m[key]===undefined&&SLCOLS[key].test(k))m[key]=j});if(m.tgl!==undefined&&m.kode!==undefined){hi=i;map=m;break}}
+  if(hi<0)throw new Error('Kolom TANGGAL_PB dan KD_STORE tidak ditemukan. Gunakan file format SL_DC_SS08_Per_Toko.');
+  if(map.qsh===undefined&&map.rsh===undefined)throw new Error('Kolom QTY_SHIP / RP_SHIP tidak ditemukan di file');
+  const agg={},skip={kosong:0,tanggal:0};let dupe=0;
+  for(let i=hi+1;i<aoa.length;i++){const r=aoa[i],k=String(r[map.kode]==null?'':r[map.kode]).trim().toUpperCase();
+    if(!k||/^(TOTAL|GRAND)/.test(k)){skip.kosong++;continue}
+    const t=toDS(r[map.tgl]);if(!t){skip.tanggal++;continue}
+    const key=t+'|'+k,v=c=>map[c]===undefined?0:toNum(r[map[c]]);
+    if(agg[key]){dupe++;const a=agg[key];a[4]+=v('qpb');a[5]+=v('qsh');a[6]+=v('rpb');a[7]+=v('qpk');a[8]+=v('rpk');a[9]+=v('rsh');a[11]+=v('item');a[10]=a[6]?Math.round(a[9]/a[6]*1000)/10:a[10];continue}
+    agg[key]=[t,k,map.nama===undefined?'':String(r[map.nama]).trim(),map.br!==undefined?String(r[map.br]).trim().toUpperCase():(brOf[k]||''),v('qpb'),v('qsh'),v('rpb'),v('qpk'),v('rpk'),v('rsh'),v('slq'),v('item')];
+  }
+  const rows=Object.values(agg);if(!rows.length)throw new Error('Tidak ada baris data yang valid di file');
+  const dts=rows.map(r=>r[0]).sort(),ks=new Set(rows.map(r=>r[1]));let rpPb=0,rpShip=0;rows.forEach(r=>{rpPb+=r[6];rpShip+=r[9]});
+  return{rows,min:dts[0],max:dts[dts.length-1],kodes:ks.size,unk:[...ks].filter(k=>!known.has(k)),rpPb,rpShip,skip,dupe,cols:Object.keys(map).length};
+}
 
 // ====== Upload SL ======
-const toDS=v=>{if(typeof v==='number')return new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10);const s=String(v||'').trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+'-'+pad(+m[2])+'-'+pad(+m[1]):''};
 function vUpload(){
   const s=S.sl;
-  return card(`<div class="text-sm font-bold mb-1">Upload SL ALL TAG</div><p class="text-xs text-slate-400 mb-4">Pilih file SL (.xlsx / .csv). Kolom dikenali otomatis: TANGGAL SL, KODE, NAMA, QTY PB, QTY SHIP, BREANC. Tanggal yang sama akan diganti (tidak dobel). Sistem otomatis membuat backup sebelum menimpa.</p>
+  return card(`<div class="text-sm font-bold mb-1">Upload SL per Toko</div><p class="text-xs text-slate-400 mb-4">Pilih file <b>SL_DC_SS08_Per_Toko</b> (.xls / .xlsx / .csv). Kolom dikenali otomatis: TANGGAL_PB, KD_STORE, NAMA_STORE, QTY_PB, RP_PB, QTY_PICK, RP_PICK, QTY_SHIP, RP_SHIP, SL_QTY, TOT_ITEM. Format lama (TANGGAL SL, KODE, QTY PB, QTY SHIP) juga masih bisa. Tanggal yang sama akan diganti (tidak dobel). Sistem otomatis membuat backup sebelum menimpa.</p>
    <input type="file" accept=".xlsx,.xls,.csv" class="inp" onchange="readSL(this.files[0])">
-   ${s?`<div class="mt-4 text-sm space-y-1"><div>File: <b>${esc(s.name)}</b></div><div>Baris: <b>${nf(s.rows.length)}</b> · Toko unik: <b>${nf(s.kodes)}</b> · Tanggal: <b>${s.min}</b> s/d <b>${s.max}</b></div>
-   <div class="${s.unk.length?'text-amber-400':'text-emerald-400'}">${s.unk.length?'Kode tidak ada di master toko ('+s.unk.length+'): '+esc(s.unk.slice(0,12).join(', '))+(s.unk.length>12?' ...':''):'Semua kode dikenali di master toko'}</div>
-   <button class="btn btn-p mt-3" onclick="doSL()">Proses & Simpan</button></div>`:''}`);
+   ${s?`<div class="mt-4 text-sm space-y-2"><div>File: <b>${esc(s.name)}</b></div><div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${kpi('Baris',nf(s.rows.length),'toko × tanggal')}${kpi('Toko unik',nf(s.kodes),s.min===s.max?fmtD(s.min):fmtD(s.min)+' – '+fmtD(s.max))}${kpi('Rp PB',nf(s.rpPb),'nilai pesanan')}${kpi('Rp Ship',nf(s.rpShip),'SL nilai '+pct(s.rpShip,s.rpPb)+'%')}</div>
+   <div class="${s.unk.length?'text-amber-400':'text-emerald-400'}">${s.unk.length?'⚠ Kode tidak ada di master toko ('+s.unk.length+'): '+esc(s.unk.slice(0,12).join(', '))+(s.unk.length>12?' ...':'')+' — tetap tersimpan, tetapi tidak tampil di jadwal sampai toko didaftarkan.':'✓ Semua kode dikenali di master toko'}</div>
+   ${s.skip.tanggal||s.dupe?`<div class="text-xs text-slate-400">${s.skip.tanggal?s.skip.tanggal+' baris dilewati (tanggal tidak terbaca). ':''}${s.dupe?s.dupe+' baris ganda (toko &amp; tanggal sama) dijumlahkan.':''}</div>`:''}
+   <button class="btn btn-p mt-2" onclick="doSL()">Proses &amp; Simpan</button></div>`:''}`);
 }
 async function readSL(f){
   if(!f)return;busy(true,'Membaca file...');
-  try{
-    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const name=wb.SheetNames.find(n=>/SL/i.test(n))||wb.SheetNames[0];
-    const js=XLSX.utils.sheet_to_json(wb.Sheets[name],{raw:true,defval:''});if(!js.length)throw new Error('File kosong');
-    const ks=Object.keys(js[0]),fk=re=>ks.find(k=>re.test(k.trim()));
-    const kT=fk(/^TANGGAL/i),kK=fk(/^KODE$/i),kN=fk(/^NAMA/i),kP=fk(/QTY\s*PB/i),kS=fk(/QTY\s*SHIP/i),kB=fk(/BR[A-Z]*NCH|BREANC/i);
-    if(!kT||!kK)throw new Error('Kolom TANGGAL SL / KODE tidak ditemukan');
-    const rows=[];js.forEach(r=>{const t=toDS(r[kT]),k=String(r[kK]).trim().toUpperCase();if(t&&k)rows.push([t,k,kN?r[kN]:'',kB?r[kB]:'',kP?r[kP]:0,kS?r[kS]:0])});
-    const dts=rows.map(r=>r[0]).sort(),known=new Set(S.d.toko.map(t=>t.kode)),ks2=new Set(rows.map(r=>r[1]));
-    S.sl={name:f.name,rows,min:dts[0],max:dts[dts.length-1],kodes:ks2.size,unk:[...ks2].filter(k=>!known.has(k))};
-  }catch(e){toast(e.message,true);S.sl=null}finally{busy(false);render()}
+  try{const t=await readTable(f),brOf={};S.d.toko.forEach(x=>brOf[x.kode]=x.branch);
+    const p=parseSL(t.aoa,new Set(S.d.toko.map(x=>x.kode)),brOf);S.sl=Object.assign({name:f.name},p)}
+  catch(e){toast(e.message,true);S.sl=null}finally{busy(false);render()}
 }
 function doSL(){
-  const s=S.sl;run(async()=>{
-    const dates=[...new Set(s.rows.map(r=>r[0]))];await api('slBegin',{dates});
-    for(let i=0;i<s.rows.length;i+=4000){busy(true,'Mengunggah '+Math.min(i+4000,s.rows.length)+' / '+s.rows.length);await api('slAppend',{rows:s.rows.slice(i,i+4000)})}
-    await api('slEnd',{file:s.name,count:s.rows.length,min:s.min,max:s.max});
-    S.per=s.max.slice(0,7);$('#per').value=S.per;S.sl=null;await load();
+  const s=S.sl;if(!s)return;
+  run(async()=>{
+    const dates=[...new Set(s.rows.map(r=>r[0]))];await apiRetry('slBegin',{dates});
+    const N=3000;for(let i=0;i<s.rows.length;i+=N){busy(true,'Mengunggah '+Math.min(i+N,s.rows.length)+' / '+s.rows.length);await apiRetry('slAppend',{rows:s.rows.slice(i,i+N)})}
+    await apiRetry('slEnd',{file:s.name,count:s.rows.length,min:s.min,max:s.max,rpPb:Math.round(s.rpPb),rpShip:Math.round(s.rpShip)});
+    S.per=s.max.slice(0,7);$('#per').value=S.per;S.cutSel=null;S.sl=null;await load();
   },'Memproses SL...','SL tersimpan — plan vs aktual terbarui');
 }
 
-// ====== Download (A1 = kode toko, B..AG = tanggal, isi hanya angka 1) ======
+// ====== Download: format REP_JWC_TOKO (Report JWC Toko) ======
 function vDownload(){
-  const brs=[...new Set(S.d.toko.map(t=>t.branch))].sort();
-  return card(`<div class="text-sm font-bold mb-1">Download Jadwal Toko — ${S.per}</div><p class="text-xs text-slate-400 mb-4">Kolom A = kode toko. Kolom B = hari terakhir bulan lalu (carry, seperti file JPF), C–AG = tanggal 1–31. Sel hanya berisi angka 1 atau kosong.</p>
+  const brs=S.d.branches;
+  return card(`<div class="text-sm font-bold mb-1">Download Jadwal Toko — ${S.per}</div><p class="text-xs text-slate-400 mb-4">Format utama <b>Report JWC Toko</b> (sama dengan file REP_JWC_TOKO): judul, Branch, Periode, Print Date, lalu kolom No., Kode Toko, Nama Toko, Insial, Rit, dan tanggal 1–31 berisi 0 / 1.</p>
    <div class="grid sm:grid-cols-2 gap-3 max-w-xl">
+    <div><label class="lbl">Format laporan</label><select id="dr" class="inp"><option value="jwc">Report JWC Toko (seperti REP_JWC_TOKO)</option><option value="matrix">Matrix ringkas (A=kode, B=carry, C–AG=tanggal)</option></select></div>
     <div><label class="lbl">Isi</label><select id="dk" class="inp"><option value="plan">Plan (jadwal)</option><option value="act">Aktual (SL)</option></select></div>
     <div><label class="lbl">Branch</label><select id="db" class="inp"><option value="">Semua</option>${brs.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
-    <div><label class="lbl">Format</label><select id="df" class="inp"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></div>
-    <div class="space-y-2 pt-5 text-xs"><label class="flex gap-2"><input type="checkbox" id="dc" checked> Sertakan kolom B (carry hari terakhir bulan lalu)</label>
-     <label class="flex gap-2"><input type="checkbox" id="dh"> Baris judul (A1 = KODE, tanggal di baris 1)</label>
-     <label class="flex gap-2"><input type="checkbox" id="de" checked> Hanya toko yang punya jadwal</label></div></div>
+    <div><label class="lbl">File</label><select id="df" class="inp"><option value="xls">.xls (HTML, identik REP_JWC_TOKO)</option><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></div>
+    <div class="space-y-2 pt-1 text-xs sm:col-span-2"><label class="flex gap-2"><input type="checkbox" id="de"> Hanya toko yang punya jadwal (jika dicentang, toko tanpa plan bulan ini tidak ikut)</label>
+     <label class="flex gap-2"><input type="checkbox" id="dc" checked> Matrix ringkas: sertakan kolom B (carry hari terakhir bulan lalu) &amp; baris judul</label></div></div>
    <button class="btn btn-p mt-5" onclick="doDL()">⬇️ Download</button>`);
 }
+function activeInMonth(t){const ps=S.per+'-01',pe=S.per+'-'+pad(S.d.nd);if(t.go&&t.go>pe)return false;if(t.tutup&&t.tutup<=ps&&!(t.go&&t.go>t.tutup))return false;return true}
+function dlList(kind,br,only){
+  const d=S.d,src=kind==='plan'?d.plan:d.act;
+  return d.toko.filter(t=>(!br||t.branch===br)&&(only?(src[t.kode]||'').slice(1,d.nd+1).includes('1'):((src[t.kode]||'').slice(1,d.nd+1).includes('1')||activeInMonth(t)))).sort((a,b)=>a.kode<b.kode?-1:a.kode>b.kode?1:0);
+}
+function printDate(){const n=new Date();return pad(n.getDate())+'-'+MON3[n.getMonth()]+'-'+n.getFullYear()+' '+pad(n.getHours())+':'+pad(n.getMinutes())+':'+pad(n.getSeconds())}
+function jwcModel(kind,br,only){
+  const d=S.d,src=kind==='plan'?d.plan:d.act,rows=dlList(kind,br,only).map((t,i)=>{const s=src[t.kode]||'',r=[i+1,t.kode,t.nama,t.ins,Number(t.rit)||1];for(let k=1;k<=31;k++)r.push(k<=d.nd&&s[k]==='1'?1:0);return r});
+  return{head:['Report JWC Toko'+(kind==='act'?' (Aktual SL)':''),'Branch : '+d.setting.DC_NAME+(br?' / '+br:''),'Periode : '+MON_EN[+S.per.slice(5)-1]+' '+S.per.slice(0,4),'Print Date : '+printDate()],rows};
+}
+function jwcHtml(m){
+  const th=t=>`<td rowspan=2 align="center"><b>${t}</td>`;
+  let h=`<!DOCTYPE HTML PUBLIC "-//DTC XLS/EN">\n<html>\n<meta charset="UTF-8">\n<b style="font-size:15px">${esc(m.head[0])}<br>\n<b>${esc(m.head[1])}<br>\n<b>${esc(m.head[2])}<br>\n<b>${esc(m.head[3])}<br>\n<br>\n<table border=1>\n<tr bgcolor="#f5b23d">${['No.','Kode Toko','Nama Toko','Insial','Rit'].map(th).join('')}<td colspan=31 align="center"><b>Tanggal</td></tr>\n<tr bgcolor="#f5b23d">`;
+  for(let i=1;i<=31;i++)h+=`<td align="center"><b>${i}</td>`;h+='</tr>\n';
+  m.rows.forEach(r=>{h+='<tr>'+r.map((v,i)=>`<td>${i>=1&&i<=3?esc(v):v}</td>`).join('')+'</tr>'});
+  return h+'</table></html>';
+}
+function saveBlob(parts,type,name){const b=new Blob(parts,{type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
 function doDL(){
-  const d=S.d,kind=$('#dk').value,br=$('#db').value,fmt=$('#df').value,carry=$('#dc').checked,head=$('#dh').checked,only=$('#de').checked,nd=d.nd;
-  const src=kind==='plan'?d.plan:d.act,from=carry?0:1,to=31;const aoa=[];
-  if(head){const [y,m]=S.per.split('-').map(Number),pl=new Date(y,m-1,0).getDate();aoa.push(['KODE'].concat(Array.from({length:to-from+1},(_,i)=>from+i===0?pl:from+i)))}
-  d.toko.filter(t=>!br||t.branch===br).forEach(t=>{
-    const s=src[t.kode]||'';if(only&&!(s.slice(1,nd+1).includes('1')))return;
-    const r=[t.kode];for(let i=from;i<=to;i++)r.push(i<=nd&&s[i]==='1'?1:'');aoa.push(r)});
-  const ws=XLSX.utils.aoa_to_sheet(aoa),fn=`JADWAL_TOKO_${kind.toUpperCase()}_${S.per}`;
-  if(fmt==='csv'){const b=new Blob([XLSX.utils.sheet_to_csv(ws)],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn+'.csv';a.click()}
-  else{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'JADWAL');XLSX.writeFile(wb,fn+'.xlsx')}
-  toast('Terunduh: '+nf(aoa.length-(head?1:0))+' toko');
+  try{
+    const d=S.d,rep=$('#dr').value,kind=$('#dk').value,br=$('#db').value,fmt=$('#df').value,only=$('#de').checked,tag=MON_EN[+S.per.slice(5)-1]+'_'+S.per.slice(0,4);
+    if(rep==='jwc'){
+      const m=jwcModel(kind,br,only),fn=(kind==='plan'?'REP_JWC_TOKO_':'REP_AKTUAL_TOKO_')+tag+(br?'_'+br.replace(/\s+/g,'_'):'');
+      if(fmt==='xls')saveBlob([jwcHtml(m)],'application/vnd.ms-excel',fn+'.xls');
+      else{
+        const hdr=['No.','Kode Toko','Nama Toko','Insial','Rit'],dayRow=Array.from({length:31},(_,i)=>i+1);
+        if(fmt==='csv')saveBlob(['\ufeff'+XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet([hdr.concat(dayRow)].concat(m.rows)))],'text/csv',fn+'.csv');
+        else{
+          const aoa=[[m.head[0]],[m.head[1]],[m.head[2]],[m.head[3]],[],hdr.concat(['Tanggal'],new Array(30).fill('')),['','','','',''].concat(dayRow)].concat(m.rows),ws=XLSX.utils.aoa_to_sheet(aoa);
+          ws['!merges']=[0,1,2,3,4].map(c=>({s:{r:5,c},e:{r:6,c}})).concat([{s:{r:5,c:5},e:{r:5,c:35}}]);
+          ws['!cols']=[{wch:6},{wch:9},{wch:34},{wch:9},{wch:5}].concat(new Array(31).fill({wch:3.5}));
+          const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'REP JWC TOKO');XLSX.writeFile(wb,fn+'.xlsx');
+        }
+      }
+      toast('Terunduh: '+nf(m.rows.length)+' toko (format Report JWC Toko)');return;
+    }
+    // matrix ringkas: A=kode, B=carry (hari terakhir bulan lalu), C..AG = tanggal 1-31
+    const carry=$('#dc').checked,src=kind==='plan'?d.plan:d.act,from=carry?0:1,aoa=[];
+    if(carry){const[y,m]=S.per.split('-').map(Number),pl=new Date(y,m-1,0).getDate();aoa.push(['KODE'].concat(Array.from({length:32},(_,i)=>i===0?pl:i)))}
+    const l=dlList(kind,br,only);l.forEach(t=>{const s=src[t.kode]||'',r=[t.kode];for(let i=from;i<=31;i++)r.push(i<=d.nd&&s[i]==='1'?1:'');aoa.push(r)});
+    const ws=XLSX.utils.aoa_to_sheet(aoa),fn=`JADWAL_TOKO_${kind.toUpperCase()}_${S.per}`;
+    if(fmt==='csv')saveBlob([XLSX.utils.sheet_to_csv(ws)],'text/csv',fn+'.csv');
+    else{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'JADWAL');XLSX.writeFile(wb,fn+'.'+(fmt==='xls'?'xlsx':fmt))}
+    toast('Terunduh: '+nf(l.length)+' toko');
+  }catch(e){toast('Gagal download: '+e.message,true)}
 }
 
 // ====== Riwayat ======
-function vRiwayat(){return card(`<div class="flex gap-2 mb-3"><input id="hk" class="inp !w-56" placeholder="Filter kode toko"><button class="btn" onclick="loadRiwayat()">Cari</button></div><div id="hl" class="overflow-auto max-h-[72vh] text-xs">Memuat...</div>`)}
+function vRiwayat(){return card(`<div class="flex gap-2 mb-3 flex-wrap"><input id="hk" class="inp !w-56" placeholder="Filter kode toko"><select id="ha" class="inp !w-auto"><option value="">Semua aksi</option><option value="STATUS">Status Tutup/GO</option><option value="TOKO">Toko baru</option><option value="LIBUR">Libur / SO</option><option value="GROUP">Group</option><option value="TARGET">Target</option><option value="UPLOAD">Upload SL</option><option value="IMPOR">Impor</option></select><button class="btn" onclick="loadRiwayat()">Cari</button></div><div id="hl" class="overflow-auto max-h-[72vh] text-xs">Memuat...</div>`)}
 async function loadRiwayat(){
-  try{const h=await api('history',{kode:($('#hk')||{}).value||'',limit:500});$('#hl')&&($('#hl').innerHTML=`<table class="w-full"><thead><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Kode</th><th>Detail</th></tr></thead><tbody>${h.map(r=>`<tr><td class="whitespace-nowrap">${r.waktu}</td><td>${esc(r.user)}</td><td class="font-bold">${r.aksi}</td><td class="font-mono">${esc(r.kode)}</td><td class="text-slate-400 max-w-[420px] truncate" title="${esc(r.detail)}">${esc(r.detail)}</td></tr>`).join('')}</tbody></table>`)}catch(e){toast(e.message,true)}
+  try{const h=await api('history',{kode:($('#hk')||{}).value||'',aksi:($('#ha')||{}).value||'',limit:500});$('#hl')&&($('#hl').innerHTML=`<table class="w-full"><thead><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Kode</th><th>Detail</th></tr></thead><tbody>${h.map(r=>`<tr><td class="whitespace-nowrap">${esc(r.waktu)}</td><td>${esc(r.user)}</td><td class="font-bold">${esc(r.aksi)}</td><td class="font-mono">${esc(r.kode)}</td><td class="text-slate-400 max-w-[420px] truncate" title="${esc(r.detail)}">${esc(r.detail)}</td></tr>`).join('')}</tbody></table>`)}catch(e){toast(e.message,true)}
 }
 
-// ====== Admin: user, backup, impor awal ======
-function vAdmin(){return`<div class="space-y-5">
-  ${card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Pengguna & Hak Akses</div><button class="btn btn-p" onclick="formUser()">+ Pengguna</button></div><div id="ul" class="overflow-auto max-h-[40vh] text-xs">Memuat...</div>
+// ====== Admin: user, pengaturan, backup, impor awal ======
+function vAdmin(){const st=S.d.setting;return`<div class="space-y-5">
+  ${card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Pengguna &amp; Hak Akses</div><button class="btn btn-p" onclick="formUser()">+ Pengguna</button></div><div id="ul" class="overflow-auto max-h-[40vh] text-xs">Memuat...</div>
    <p class="text-[11px] text-slate-500 mt-2">Peran: admin (semua), editor (lihat, ubah, upload, download), viewer (lihat, download). Izin bisa disesuaikan per orang. Izin "download" hanya menyembunyikan menu/tombol di aplikasi.</p>`)}
+  ${card(`<div class="text-sm font-bold mb-3">Pengaturan Laporan &amp; Alarm</div><div class="grid sm:grid-cols-2 gap-4 max-w-3xl">
+   <div><label class="lbl">Nama Branch/DC di judul Report JWC Toko</label><div class="flex gap-2"><input id="sdc" class="inp" value="${esc(st.DC_NAME)}"><button class="btn" onclick="saveSetting('DC_NAME','sdc')">Simpan</button></div></div>
+   <div><label class="lbl">Email penerima alarm harian (GO &amp; tutup)</label><div class="flex gap-2"><input id="sem" class="inp" value="${esc(st.ALARM_EMAIL)}"><button class="btn" onclick="saveSetting('ALARM_EMAIL','sem')">Simpan</button></div></div></div>
+   <div class="mt-3"><button class="btn btn-s" onclick="sendAlarmNow()">✉️ Kirim email alarm sekarang (uji)</button></div><p class="text-[11px] text-slate-500 mt-2">Email otomatis terkirim tiap pagi jam 06:00 bila ada toko GO / tutup H-3, GO belum ada SL, atau toko &gt; 4 hari belum kirim (jalankan installTriggers() sekali di Apps Script).</p>`)}
   ${card(`<div class="flex justify-between mb-3"><div class="text-sm font-bold">Backup (Google Drive)</div><button class="btn btn-p" onclick="backupNow()">Backup Sekarang</button></div><div id="bl" class="text-xs max-h-48 overflow-auto">Memuat...</div><p class="text-[11px] text-slate-500 mt-2">Otomatis tiap malam jam 02:00 + sebelum upload SL / impor. Menyimpan 60 backup terakhir.</p>`)}
-  ${card(`<div class="text-sm font-bold mb-1">Impor Awal dari File JPF (sekali di awal)</div><p class="text-xs text-slate-400 mb-3">Membaca sheet "DETAIL JPF VS REALISASI" dan "1. MASTER GROUP (SETTING)": master toko, group, tutup/GO, dan plan dasar periode di file. <b class="text-amber-400">Menimpa master toko & group yang ada.</b> Backup dibuat otomatis.</p><input type="file" accept=".xlsx" class="inp" onchange="imporJPF(this.files[0])">`)}</div>`}
+  ${card(`<div class="text-sm font-bold mb-1">Impor Awal dari File JPF (sekali di awal / tiap bulan baru)</div><p class="text-xs text-slate-400 mb-3">Membaca sheet "DETAIL JPF VS REALISASI" dan "1. MASTER GROUP (SETTING)": master toko (termasuk Rit bila ada kolom RIT), group, tutup/GO, target bulan, dan plan dasar periode di file. File ringan tersedia di folder <b>data/</b> proyek. <b class="text-amber-400">Menimpa master toko &amp; group yang ada.</b> Backup dibuat otomatis.</p><input type="file" accept=".xlsx" class="inp" onchange="imporJPF(this.files[0])">`)}</div>`}
 async function loadAdmin(){
-  try{S.users=await api('users.list');$('#ul')&&($('#ul').innerHTML=`<table class="w-full"><thead><tr><th>Username</th><th>Peran</th><th>Izin</th><th>Login terakhir</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td class="font-bold">${esc(u.username)} ${u.disabled?'<span class="text-red-400">(nonaktif)</span>':''}</td><td>${u.role}</td><td class="text-slate-400">${u.perms.join(', ')}</td><td>${(u.last||'').slice(0,22)}</td><td><button class="btn" onclick="formUser('${esc(u.username)}')">Edit</button></td></tr>`).join('')}</tbody></table>`);
-    S.backups=await api('backups');$('#bl')&&($('#bl').innerHTML=S.backups.length?S.backups.map(b=>`<div class="py-1 border-b border-slate-800"><a class="text-sky-400" target="_blank" href="${b.url}">${esc(b.name)}</a> <span class="text-slate-500">${b.at}</span></div>`).join(''):'Belum ada backup')}catch(e){toast(e.message,true)}
+  try{S.users=await api('users.list');$('#ul')&&($('#ul').innerHTML=`<table class="w-full"><thead><tr><th>Username</th><th>Peran</th><th>Izin</th><th>Login terakhir</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td class="font-bold">${esc(u.username)} ${u.disabled?'<span class="text-red-400">(nonaktif)</span>':''}</td><td>${esc(u.role)}</td><td class="text-slate-400">${esc(u.perms.join(', '))}</td><td>${esc((u.last||'').slice(0,22))}</td><td><button class="btn" onclick="formUser('${esc(u.username)}')">Edit</button></td></tr>`).join('')}</tbody></table>`);
+    S.backups=await api('backups');$('#bl')&&($('#bl').innerHTML=S.backups.length?S.backups.map(b=>`<div class="py-1 border-b border-slate-800"><a class="text-sky-400" target="_blank" rel="noopener" href="${esc(b.url)}">${esc(b.name)}</a> <span class="text-slate-500">${esc(b.at)}</span></div>`).join(''):'Belum ada backup')}catch(e){toast(e.message,true)}
 }
+function saveSetting(key,id){run(async()=>{await api('settingSave',{key,value:$('#'+id).value});await load()},'Menyimpan...','Pengaturan disimpan')}
 function formUser(name){
   const u=S.users.find(x=>x.username===name)||{username:'',role:'viewer',perms:['view','download'],disabled:false},P=['view','edit','upload','download'];
   openModal(`<h3 class="font-bold mb-4">${name?'Edit':'Tambah'} Pengguna</h3><div class="grid grid-cols-2 gap-3">
@@ -321,29 +708,39 @@ function formUser(name){
 function roleDef(){const r=$('#ur').value,D={admin:['view','edit','upload','download'],editor:['view','edit','upload','download'],viewer:['view','download']}[r];document.querySelectorAll('.up').forEach(c=>c.checked=D.includes(c.value))}
 function saveUser(){run(async()=>{await api('users.save',{username:$('#uu').value,password:$('#up').value,role:$('#ur').value,disabled:$('#ud').checked,perms:[...document.querySelectorAll('.up:checked')].map(c=>c.value)});closeModal();await loadAdmin()},'Menyimpan...','Pengguna disimpan (berlaku saat login ulang)')}
 function backupNow(){run(async()=>{const r=await api('backupNow');await loadAdmin();toast('Backup: '+r.name)},'Membuat backup...')}
+// parser JPF dipisah agar bisa diuji: menerima array-of-array sheet DETAIL (D) dan MASTER GROUP (M)
+function parseJPF(D,M){
+  const mo=Number(D[13]&&D[13][20]),yr=Number(D[13]&&D[13][21]);if(!mo||!yr)throw new Error('Bulan/tahun (U14/V14) tidak terbaca');
+  const periode=yr+'-'+pad(mo),stores=[],seen={},dups=[],brCount={},ritCol=(D[15]||[]).findIndex(x=>String(x).trim().toUpperCase()==='RIT');
+  for(let i=16;i<D.length;i++){const r=D[i],kode=String(r[1]||'').trim().toUpperCase();if(!kode)continue;
+    if(seen[kode]){dups.push(kode);continue}seen[kode]=1;
+    let plan='';for(let c=19;c<=50;c++)plan+=Number(r[c])===1?'1':'0';
+    const g=String(r[10]||'').trim().toUpperCase(),b=String(r[7]||'').trim().toUpperCase(),rt=ritCol>=0?String(r[ritCol]||'').trim():'';
+    stores.push({kode,ins:String(r[2]||''),nama:String(r[3]||''),branch:b,group:g,ket:String(r[16]||'').trim(),tutup:toDS(r[17]),go:toDS(r[18]),plan,rit:/^[1-9]$/.test(rt)?rt:'1'});
+    if(g){brCount[g]=brCount[g]||{};brCount[g][b]=(brCount[g][b]||0)+1}}
+  const groups=[];for(let i=15;i<M.length;i++){const r=M[i],g=String(r[1]||'').trim().toUpperCase();if(!g||!/^[A-Z]{3}\d{2}$/.test(g))continue;
+    const bc=brCount[g]||{},br=Object.keys(bc).sort((a,b)=>bc[b]-bc[a])[0]||'';groups.push({group:g,branch:br,h1:String(r[2]||'').trim().toUpperCase(),h2:String(r[3]||'').trim().toUpperCase(),h3:String(r[4]||'').trim().toUpperCase()})}
+  if(!stores.length||!groups.length)throw new Error('Data toko/group tidak terbaca dari file');
+  const target=Number(M[7]&&M[7][3])||0,branches=[...new Set(stores.map(s=>s.branch).filter(Boolean))];
+  return{periode,stores,groups,dups,target,branches};
+}
 async function imporJPF(f){
   if(!f||!confirm('Impor akan MENIMPA master toko & group. Lanjut?'))return;
   run(async()=>{
     busy(true,'Membaca file JPF (bisa 10–30 detik)...');
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array',sheets:['DETAIL JPF VS REALISASI','1. MASTER GROUP (SETTING)']});
     const wd=wb.Sheets['DETAIL JPF VS REALISASI'],wm=wb.Sheets['1. MASTER GROUP (SETTING)'];if(!wd||!wm)throw new Error('Sheet DETAIL JPF VS REALISASI / 1. MASTER GROUP (SETTING) tidak ditemukan');
-    const D=XLSX.utils.sheet_to_json(wd,{header:1,raw:true,defval:''}),M=XLSX.utils.sheet_to_json(wm,{header:1,raw:true,defval:''});
-    const mo=Number(D[13][20]),yr=Number(D[13][21]);if(!mo||!yr)throw new Error('Bulan/tahun (U14/V14) tidak terbaca');
-    const periode=yr+'-'+pad(mo),stores=[],brCount={};
-    for(let i=16;i<D.length;i++){const r=D[i],kode=String(r[1]||'').trim().toUpperCase();if(!kode)continue;
-      let plan='';for(let c=19;c<=50;c++)plan+=Number(r[c])===1?'1':'0';
-      const g=String(r[10]||'').trim().toUpperCase(),b=String(r[7]||'').trim();
-      stores.push({kode,ins:String(r[2]||''),nama:String(r[3]||''),branch:b,group:g,ket:String(r[16]||'').trim(),tutup:toDS(r[17]),go:toDS(r[18]),plan});
-      if(g){brCount[g]=brCount[g]||{};brCount[g][b]=(brCount[g][b]||0)+1}}
-    const groups=[];for(let i=15;i<M.length;i++){const r=M[i],g=String(r[1]||'').trim().toUpperCase();if(!g||!/^[A-Z]{3}\d{2}$/.test(g))continue;
-      const bc=brCount[g]||{},br=Object.keys(bc).sort((a,b)=>bc[b]-bc[a])[0]||'';groups.push({group:g,branch:br,h1:String(r[2]||''),h2:String(r[3]||''),h3:String(r[4]||'')})}
-    if(!stores.length||!groups.length)throw new Error('Data toko/group tidak terbaca dari file');
-    busy(true,'Menyiapkan impor...');await api('imporBegin',{periode,groups});
-    for(let i=0;i<stores.length;i+=300){busy(true,'Impor toko '+Math.min(i+300,stores.length)+' / '+stores.length);await api('imporToko',{periode,rows:stores.slice(i,i+300)})}
-    await api('imporEnd',{periode,count:stores.length});S.per=periode;$('#per').value=periode;await load();
-    toast('Impor selesai: '+stores.length+' toko, '+groups.length+' group, periode '+periode);
+    const J=parseJPF(XLSX.utils.sheet_to_json(wd,{header:1,raw:true,defval:''}),XLSX.utils.sheet_to_json(wm,{header:1,raw:true,defval:''}));
+    try{
+      busy(true,'Menyiapkan impor...');await apiRetry('imporBegin',{periode:J.periode,groups:J.groups,branches:J.branches});
+      for(let i=0;i<J.stores.length;i+=300){busy(true,'Impor toko '+Math.min(i+300,J.stores.length)+' / '+J.stores.length);await apiRetry('imporToko',{periode:J.periode,rows:J.stores.slice(i,i+300)})}
+      await apiRetry('imporEnd',{periode:J.periode,count:J.stores.length,groupCount:J.groups.length,dups:J.dups,target:J.target});
+    }catch(e){throw new Error('Impor terhenti: '+e.message+' — data lama aman di menu Admin > Backup. Ulangi impor.')}
+    S.per=J.periode;$('#per').value=J.periode;S.cutSel=null;await load();
+    toast('Impor selesai: '+J.stores.length+' toko, '+J.groups.length+' group, periode '+J.periode+(J.target?', target '+nf(J.target):'')+(J.dups.length?' — kode ganda dilewati: '+J.dups.join(', '):''));
   },'Impor...');
 }
+
 </script>
 </body>
 </html>
