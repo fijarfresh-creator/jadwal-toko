@@ -565,8 +565,10 @@ async function readTable(f){
     return{name:f.name,aoa:[...tbs[0].rows].map(r=>[...r.cells].map(c=>c.textContent.replace(/\u00a0/g,' ').trim()))};
   }
   const wb=XLSX.read(buf,{type:'array'}),name=wb.SheetNames.find(n=>/SL/i.test(n))||wb.SheetNames[0];
-  return{name:f.name,aoa:XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''})};
+  return{name:f.name,aoa:aoaAbs(wb.Sheets[name])};
 }
+// sheet_to_json(header:1) bersifat RELATIF terhadap dimensi sheet; paksa mulai dari A1 agar indeks baris/kolom selalu absolut
+function aoaAbs(ws){const r=XLSX.utils.decode_range(ws['!ref']||'A1');r.s.r=0;r.s.c=0;ws['!ref']=XLSX.utils.encode_range(r);return XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''})}
 const nh=h=>String(h==null?'':h).toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_|_$/g,'');
 // Format SL_DC_SS08_Per_Toko: TANGGAL_PB, KD_STORE, NAMA_STORE, QTY_PB, RP_PB, QTY_PICK, RP_PICK, QTY_SHIP, RP_SHIP, SL_QTY, TOT_ITEM
 // (format lama SL ALL TAG: TANGGAL SL, KODE, NAMA, QTY PB, QTY SHIP, BRANCH — tetap dikenali)
@@ -720,7 +722,7 @@ function parseJPF(D,M){
     if(g){brCount[g]=brCount[g]||{};brCount[g][b]=(brCount[g][b]||0)+1}}
   const groups=[];for(let i=15;i<M.length;i++){const r=M[i],g=String(r[1]||'').trim().toUpperCase();if(!g||!/^[A-Z]{3}\d{2}$/.test(g))continue;
     const bc=brCount[g]||{},br=Object.keys(bc).sort((a,b)=>bc[b]-bc[a])[0]||'';groups.push({group:g,branch:br,h1:String(r[2]||'').trim().toUpperCase(),h2:String(r[3]||'').trim().toUpperCase(),h3:String(r[4]||'').trim().toUpperCase()})}
-  if(!stores.length||!groups.length)throw new Error('Data toko/group tidak terbaca dari file');
+  if(!stores.length||!groups.length)throw new Error('Data tidak terbaca dari file (toko: '+stores.length+', group: '+groups.length+'). Pastikan memilih file JPF yang berisi sheet DETAIL JPF VS REALISASI dan 1. MASTER GROUP (SETTING).');
   const target=Number(M[7]&&M[7][3])||0,branches=[...new Set(stores.map(s=>s.branch).filter(Boolean))];
   return{periode,stores,groups,dups,target,branches};
 }
@@ -730,7 +732,7 @@ async function imporJPF(f){
     busy(true,'Membaca file JPF (bisa 10–30 detik)...');
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array',sheets:['DETAIL JPF VS REALISASI','1. MASTER GROUP (SETTING)']});
     const wd=wb.Sheets['DETAIL JPF VS REALISASI'],wm=wb.Sheets['1. MASTER GROUP (SETTING)'];if(!wd||!wm)throw new Error('Sheet DETAIL JPF VS REALISASI / 1. MASTER GROUP (SETTING) tidak ditemukan');
-    const J=parseJPF(XLSX.utils.sheet_to_json(wd,{header:1,raw:true,defval:''}),XLSX.utils.sheet_to_json(wm,{header:1,raw:true,defval:''}));
+    const J=parseJPF(aoaAbs(wd),aoaAbs(wm));
     try{
       busy(true,'Menyiapkan impor...');await apiRetry('imporBegin',{periode:J.periode,groups:J.groups,branches:J.branches});
       for(let i=0;i<J.stores.length;i+=300){busy(true,'Impor toko '+Math.min(i+300,J.stores.length)+' / '+J.stores.length);await apiRetry('imporToko',{periode:J.periode,rows:J.stores.slice(i,i+300)})}
